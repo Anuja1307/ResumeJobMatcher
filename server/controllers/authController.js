@@ -1,5 +1,6 @@
 const bcrypt=require('bcrypt');
 const User=require('../models/user');
+const jwt=require('jsonwebtoken');
 
 exports.dummFunction = (req,res)=>{
     res.send("Inside authController");
@@ -51,6 +52,17 @@ exports.postLogin=async (req,res)=>{
     if(!isMatch){
         return res.status(400).send("Invalid credentials");
     }
+
+    const token=jwt.sign({userId:userExists._id,name:userExists.name,userEmail:userExists.email},process.env.JWT_SECRET,{expiresIn:process.env.JWT_EXPIRE});
     
-    return res.status(200).send("User logged in successfully");
+    return res.status(200).send({message:"User logged in successfully",token});
+}
+
+exports.getProfile=async (req,res)=>{
+    const user=req.user;
+    const userFromDb=await User.findById(user.userId);
+    if(!userFromDb){
+        return res.status(404).send("User not found");
+    }
+    return res.status(200).send({name:userFromDb.name,email:userFromDb.email});
 }
