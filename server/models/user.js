@@ -4,7 +4,12 @@ const userSchema = new mongoose.Schema(
     {
         name: { type: String, required: true },
         email: { type: String, required: true, unique: true },
-        password: { type: String, required: true }
+        password: { type: String, required: true },
+        resume: {
+            filename: String,
+            path: String,
+            uploadedAt: Date
+    }
     },
     {
         timestamps: true
