@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema(
         resume: {
             filename: String,
             path: String,
+            resumeText:String,
             uploadedAt: Date
     }
     },
