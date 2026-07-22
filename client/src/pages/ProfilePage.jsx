@@ -11,11 +11,15 @@ const ProfilePage = () => {
         const fetchProfile = async () => {
             try {
                 const response = await getProfile();
-                setProfile(response.data.user);
-                console.log("Profile data fetched successfully:", response.data.user);
-                console.log("Profile data:", profile);
+                const loadedProfile = response?.data?.user;
+
+                if (!loadedProfile) {
+                    throw new Error('No profile data returned by the server.');
+                }
+
+                setProfile(loadedProfile);
             } catch (err) {
-                setError(err.response?.data?.message || 'Failed to fetch profile. Try again.');
+                setError(err.response?.data?.message || err.message || 'Failed to fetch profile. Try again.');
             } finally {
                 setLoading(false);
             }

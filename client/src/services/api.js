@@ -1,15 +1,15 @@
 import axios from 'axios';
 
-const api=axios.create({baseURL:import.meta.env.VITE_APP_API_URL || 'http://localhost:3000/api'});
-console.log("API URL:", import.meta.env.VITE_API_URL);  
+const baseURL = import.meta.env.VITE_API_URL || import.meta.env.VITE_APP_API_URL || 'http://localhost:3000/api';
 
-api.interceptors.request.use((config)=>{
-    const token=localStorage.getItem('token');
-    if(token){
-        config.headers.Authorization=`Bearer ${token}`;
+const api = axios.create({ baseURL });
 
-}
-return config;
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
 });
 
 export default api;

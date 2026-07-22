@@ -58,7 +58,12 @@ exports.postLogin=async (req,res)=>{
 
         const token=jwt.sign({userId:userExists._id,name:userExists.name,userEmail:userExists.email},process.env.JWT_SECRET,{expiresIn:process.env.JWT_EXPIRE});
         
-        return res.status(200).json({success:true,message:"User logged in successfully",token});
+        return res.status(200).json({
+            success:true,
+            message:"User logged in successfully",
+            token,
+            user:{id:userExists._id,name:userExists.name,email:userExists.email}
+        });
     } catch (err) {
         console.log(err);
         return res.status(500).json({success:false,message:"Server error"});

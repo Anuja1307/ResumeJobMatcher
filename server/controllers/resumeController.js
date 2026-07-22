@@ -1,7 +1,8 @@
 const { PassThrough } = require('stream');
 const User=require('../models/user');
 const cloudinary = require('../config/cloudinary');
-const { extractTextFromPdf } = require('../services/resumeParser');
+const { extractTextFromPdf } = require('../services/pdfParser');
+const parseResumeText = require('../services/resumeParser');
 
 const uploadBufferToCloudinary = (buffer, filename) => {
     return new Promise((resolve, reject) => {
@@ -56,7 +57,10 @@ exports.uploadResume=async (req,res)=>{
         await user.save();
         console.log("===== RESUME TEXT =====");
         console.log(user.resume.resumeText);
-        return res.status(200).json({success:true,message:"Resume uploaded successfully",resumeUrl});
+        const structuredResume = parseResumeText(user.resume.resumeText);
+        console.log("===== STRUCTURED RESUME =====");
+        console.log(structuredResume);
+        return res.status(200).json({success:true,message:"Resume uploaded successfully",resumeUrl, structuredResume});
     } catch (error) {
         console.error("Error uploading resume:", error);
         return res.status(500).json({success:false,message:"Internal server error"});

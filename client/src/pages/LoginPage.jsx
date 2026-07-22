@@ -20,9 +20,8 @@ const LoginPage = () => {
         try {
             const response = await userLogin(email, password);
             const token = response.data.token;
-            console.log("token:", token);
-            login({ email }, token);
-            console.log("User logged in successfully");
+            const user = response.data.user || { email };
+            login(user, token);
             navigate('/dashboard');
         } 
         catch (err) {
