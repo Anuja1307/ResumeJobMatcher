@@ -2,9 +2,9 @@ from transformers import AutoTokenizer, AutoModelForTokenClassification
 import torch
 
 
-# --------------------------------------------------
-# 1. Load Model
-# --------------------------------------------------
+# -----------------------------
+# 1. Load model
+# -----------------------------
 
 model_name = "dslim/bert-base-NER"
 
@@ -12,236 +12,215 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForTokenClassification.from_pretrained(model_name)
 
 
-# --------------------------------------------------
-# 2. Resume Text
-# --------------------------------------------------
+# -----------------------------
+# 2. Resume text
+# -----------------------------
 
 text = """
-Anuja R S
-Software Engineer
+Anuja Sharma Software Developer
+anuja@gmail.com | +91 98765 43210 | Bangalore, India
 
-Experience
-Software Developer Intern at ABC Technologies
-June 2025 - August 2025
+ABC Technologies
+Software Developer Intern
 
-Education
-B.Tech in Computer Science
-XYZ University
-
-Skills
-JavaScript, React, Node.js, MongoDB, Python
+B.Tech in Computer Science and Engineering
+Amrita Vishwa Vidyapeetham, Coimbatore
 """
 
 
-# --------------------------------------------------
+# -----------------------------
 # 3. Tokenization
-# --------------------------------------------------
+# -----------------------------
+
+if not tokenizer.is_fast:
+    raise ValueError("A fast tokenizer is required for offset mapping.")
 
 inputs = tokenizer(
     text,
-    return_tensors="pt"
+    return_tensors="pt",
+    return_offsets_mapping=True,
+    truncation=True
 )
 
 
-# --------------------------------------------------
+# Save offset mapping separately
+offset_mapping = inputs.pop("offset_mapping")[0].tolist()
+
+
+# -----------------------------
 # 4. Run BERT
-# --------------------------------------------------
+# -----------------------------
 
 with torch.no_grad():
     outputs = model(**inputs)
 
 
-# --------------------------------------------------
-# 5. Get Predicted Label IDs
-# --------------------------------------------------
+# -----------------------------
+# 5. Get predicted labels
+# -----------------------------
 
-predictions = outputs.logits.argmax(dim=-1)
+predictions = outputs.logits.argmax(dim=-1)[0]
 
-
-# --------------------------------------------------
-# 6. Convert IDs → Actual Labels
-# --------------------------------------------------
-
-predicted_labels = [
+labels = [
     model.config.id2label[prediction.item()]
-    for prediction in predictions[0]
+    for prediction in predictions
 ]
 
 
-# --------------------------------------------------
-# 7. Convert IDs → Tokens
-# --------------------------------------------------
+# -----------------------------
+# 6. Get tokens
+# -----------------------------
 
 tokens = tokenizer.convert_ids_to_tokens(
     inputs["input_ids"][0]
 )
 
 
-# --------------------------------------------------
-# 8. Print Raw Token-Level Predictions
-# --------------------------------------------------
+# -----------------------------
+# 7. Build entities using offsets
+# -----------------------------
 
-print("\n========== RAW TOKEN PREDICTIONS ==========\n")
+entities = []
 
-for token, label in zip(tokens, predicted_labels):
-
-    print(f"{token} → {label}")
+current_entity = None
 
 
-# --------------------------------------------------
-# 9. Remove Special Tokens
-# --------------------------------------------------
+for token, label, offset in zip(
+    tokens,
+    labels,
+    offset_mapping
+):
 
-clean_tokens = []
-clean_labels = []
+    start, end = offset
 
-special_tokens = {
-    "[CLS]",
-    "[SEP]",
-    "[PAD]"
-}
-
-for token, label in zip(tokens, predicted_labels):
-
-    if token in special_tokens:
+    # Ignore special tokens
+    if start == end:
         continue
 
-    clean_tokens.append(token)
-    clean_labels.append(label)
+    # -------------------------
+    # Beginning of entity
+    # -------------------------
+
+    if label.startswith("B-"):
+
+        # Save previous entity
+        if current_entity:
+            current_entity["text"] = text[
+                current_entity["start"]:
+                current_entity["end"]
+            ]
+
+            entities.append(current_entity)
+
+        current_entity = {
+            "type": label[2:],
+            "start": start,
+            "end": end
+        }
 
 
-# --------------------------------------------------
-# 10. Reconstruct Subword Tokens
-# --------------------------------------------------
+    # -------------------------
+    # Inside entity
+    # -------------------------
 
-def reconstruct_tokens_and_labels(tokens, labels):
+    elif label.startswith("I-"):
 
-    new_tokens = []
-    new_labels = []
+        entity_type = label[2:]
 
-    for token, label in zip(tokens, labels):
-
-        # Example:
-        # Java → B-MISC
-        # ##Script → I-MISC
-        #
-        # becomes:
-        # JavaScript → B-MISC
-
-        if token.startswith("##"):
-
-            if new_tokens:
-                new_tokens[-1] += token[2:]
+        if (
+            current_entity
+            and current_entity["type"] == entity_type
+        ):
+            current_entity["end"] = end
 
         else:
-
-            new_tokens.append(token)
-            new_labels.append(label)
-
-    return new_tokens, new_labels
-
-
-reconstructed_tokens, reconstructed_labels = (
-    reconstruct_tokens_and_labels(
-        clean_tokens,
-        clean_labels
-    )
-)
-
-
-# --------------------------------------------------
-# 11. Group Entities
-# --------------------------------------------------
-
-def group_entities(tokens, labels):
-
-    entities = []
-
-    current_entity = None
-
-    for token, label in zip(tokens, labels):
-
-        # ------------------------------------------
-        # New entity starts
-        # ------------------------------------------
-
-        if label.startswith("B-"):
-
-            # Save previous entity
+            # Handle unexpected I- without B-
             if current_entity:
+                current_entity["text"] = text[
+                    current_entity["start"]:
+                    current_entity["end"]
+                ]
+
                 entities.append(current_entity)
 
-            entity_type = label[2:]
-
             current_entity = {
-                "word": token,
-                "entity": entity_type
+                "type": entity_type,
+                "start": start,
+                "end": end
             }
 
 
-        # ------------------------------------------
-        # Continue existing entity
-        # ------------------------------------------
+    # -------------------------
+    # Outside entity
+    # -------------------------
 
-        elif label.startswith("I-"):
+    else:
 
-            if current_entity:
+        if current_entity:
 
-                current_entity["word"] += " " + token
+            current_entity["text"] = text[
+                current_entity["start"]:
+                current_entity["end"]
+            ]
 
+            entities.append(current_entity)
 
-        # ------------------------------------------
-        # Outside entity
-        # ------------------------------------------
-
-        elif label == "O":
-
-            if current_entity:
-
-                entities.append(current_entity)
-
-                current_entity = None
+            current_entity = None
 
 
-    # ------------------------------------------
-    # Save final entity
-    # ------------------------------------------
+# -----------------------------
+# 8. Add final entity
+# -----------------------------
 
-    if current_entity:
-        entities.append(current_entity)
+if current_entity:
 
+    current_entity["text"] = text[
+        current_entity["start"]:
+        current_entity["end"]
+    ]
 
-    return entities
-
-
-entities = group_entities(
-    reconstructed_tokens,
-    reconstructed_labels
-)
+    entities.append(current_entity)
 
 
-# --------------------------------------------------
-# 12. Print Clean Token Predictions
-# --------------------------------------------------
+# -----------------------------
+# 9. Organize entities
+# -----------------------------
 
-print("\n========== CLEAN TOKEN PREDICTIONS ==========\n")
+result = {
+    "persons": [],
+    "organizations": [],
+    "locations": [],
+    "miscellaneous": []
+}
 
-for token, label in zip(
-    reconstructed_tokens,
-    reconstructed_labels
-):
-
-    print(f"{token} → {label}")
-
-
-# --------------------------------------------------
-# 13. Print Final Entities
-# --------------------------------------------------
-
-print("\n========== FINAL ENTITIES ==========\n")
 
 for entity in entities:
 
-    print(
-        f"{entity['word']} → {entity['entity']}"
-    )
+    entity_type = entity["type"]
+
+    if entity_type == "PER":
+        result["persons"].append(entity)
+
+    elif entity_type == "ORG":
+        result["organizations"].append(entity)
+
+    elif entity_type == "LOC":
+        result["locations"].append(entity)
+
+    elif entity_type == "MISC":
+        result["miscellaneous"].append(entity)
+
+
+# -----------------------------
+# 10. Print results
+# -----------------------------
+
+print("\n===== RAW ENTITIES =====")
+
+for entity in entities:
+    print(entity)
+
+
+print("\n===== ORGANIZED ENTITIES =====")
+
+print(result)
