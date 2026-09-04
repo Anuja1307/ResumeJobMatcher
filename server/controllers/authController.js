@@ -62,7 +62,12 @@ exports.postLogin=async (req,res)=>{
             success:true,
             message:"User logged in successfully",
             token,
-            user:{id:userExists._id,name:userExists.name,email:userExists.email}
+            user:{
+                id:userExists._id,
+                name:userExists.name,
+                email:userExists.email,
+                resume:userExists.resume || null
+            }
         });
     } catch (err) {
         console.log(err);
@@ -77,7 +82,15 @@ exports.getProfile=async (req,res)=>{
         if(!userFromDb){
             return res.status(404).json({success:false,message:"User not found"});
         }
-        return res.status(200).json({success:true,user:{name:userFromDb.name,email:userFromDb.email}});
+        return res.status(200).json({
+            success:true,
+            user:{
+                id:userFromDb._id,
+                name:userFromDb.name,
+                email:userFromDb.email,
+                resume:userFromDb.resume || null
+            }
+        });
     } catch (err) {
         console.log(err);
         return res.status(500).json({success:false,message:"Server error"});

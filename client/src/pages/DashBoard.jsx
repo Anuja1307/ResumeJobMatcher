@@ -1,70 +1,307 @@
-import { Briefcase, FileText, CheckCircle2, Clock, Plus, ArrowRight, TrendingUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { getJobs } from '../services/jobService';
+import { 
+    Briefcase, 
+    FileText, 
+    User, 
+    CheckCircle2, 
+    ArrowRight, 
+    Plus, 
+    Sparkles, 
+    Building2, 
+    MapPin, 
+    Clock, 
+    AlertCircle, 
+    Loader2 
+} from 'lucide-react';
 
 const DashBoard = () => {
-    const stats = [
-        { label: 'Total Applications', value: '12', description: 'Saved & active listings', icon: Briefcase, color: 'text-indigo-600 bg-indigo-50 border-indigo-100/50' },
-        { label: 'Resume Score', value: '84%', description: 'Match accuracy average', icon: FileText, color: 'text-emerald-600 bg-emerald-50 border-emerald-100/50' },
-        { label: 'Interviews Scheduled', value: '3', description: 'Upcoming conversations', icon: Clock, color: 'text-amber-600 bg-amber-50 border-amber-100/50' },
-        { label: 'Offers Received', value: '1', description: 'Active job proposals', icon: CheckCircle2, color: 'text-sky-600 bg-sky-50 border-sky-100/50' }
-    ];
+    const { user } = useAuth();
+    const [jobs, setJobs] = useState([]);
+    const [loadingJobs, setLoadingJobs] = useState(true);
+    const [jobError, setJobError] = useState('');
 
-    const actions = [
-        { title: 'Upload Resume', desc: 'Scan and match your PDF resume', path: '/dashboard/resume', label: 'Go to Resume' },
-        { title: 'Track New Job', desc: 'Save a new vacancy to your board', path: '/dashboard/jobs', label: 'Add Job' },
-        { title: 'View Profile', desc: 'Manage your personal details', path: '/dashboard/profile', label: 'View Profile' }
-    ];
+    useEffect(() => {
+        const fetchSavedJobs = async () => {
+            try {
+                const res = await getJobs();
+                if (res.data?.jobs) {
+                    setJobs(res.data.jobs);
+                }
+            } catch (err) {
+                console.error("Failed to load saved jobs for dashboard:", err);
+                setJobError("Unable to load saved jobs preview.");
+            } finally {
+                setLoadingJobs(false);
+            }
+        };
+
+        fetchSavedJobs();
+    }, []);
+
+    const hasResume = Boolean(user?.resume?.filename || user?.resume?.path);
+    const uploadedDate = user?.resume?.uploadedAt 
+        ? new Date(user.resume.uploadedAt).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        })
+        : null;
+
+    const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Candidate');
+
+    const statusColors = {
+        saved:        'bg-slate-100 text-slate-700 border-slate-200',
+        applied:      'bg-blue-50 text-blue-700 border-blue-200',
+        interviewing: 'bg-amber-50 text-amber-700 border-amber-200',
+        rejected:     'bg-rose-50 text-rose-700 border-rose-200',
+        offered:      'bg-emerald-50 text-emerald-700 border-emerald-200',
+    };
 
     return (
         <div className="space-y-8 animate-fadeIn">
-            {/* Header banner */}
-            <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-2xl p-6 md:p-8 text-white shadow-md border border-slate-800">
-                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Welcome back!</h1>
-                <p className="text-indigo-200/90 text-sm mt-2 max-w-xl">
-                    Redesign complete. Your job application control center is fully connected. Select an option from the sidebar to manage your details or review matches.
-                </p>
+            {/* WELCOME BANNER */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 md:p-8 text-white shadow-md border border-slate-800 relative overflow-hidden">
+                <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="relative z-10 space-y-2">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-semibold">
+                        <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+                        <span>AI Career Workspace</span>
+                    </div>
+                    <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+                        Welcome back, {displayName} 👋
+                    </h1>
+                    <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
+                        Your AI-powered career workspace. Manage your resume, track job opportunities, and prepare for upcoming AI insights.
+                    </p>
+                </div>
             </div>
 
-            
+            {/* SUMMARY CARDS */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* 1. Resume Summary Card */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100/60">
+                                <FileText className="h-5 w-5" />
+                            </div>
+                            {hasResume ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Uploaded
+                                </span>
+                            ) : (
+                                <span className="text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                                    Not uploaded
+                                </span>
+                            )}
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-slate-900">Resume</h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                                {hasResume ? `Last updated: ${uploadedDate}` : 'No resume uploaded yet'}
+                            </p>
+                        </div>
+                    </div>
+                    <Link 
+                        to="/dashboard/resume" 
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 pt-2 transition-colors"
+                    >
+                        <span>{hasResume ? 'View Resume' : 'Upload Resume'}</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                </div>
 
-            {/* Quick Actions & Info */}
+                {/* 2. Saved Jobs Summary Card */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100/60">
+                                <Briefcase className="h-5 w-5" />
+                            </div>
+                            <span className="text-xs font-extrabold text-slate-800 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                                {loadingJobs ? '...' : jobs.length}
+                            </span>
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-slate-900">Saved Jobs</h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                                {loadingJobs ? 'Loading jobs...' : `${jobs.length} active tracked position${jobs.length === 1 ? '' : 's'}`}
+                            </p>
+                        </div>
+                    </div>
+                    <Link 
+                        to="/dashboard/jobs" 
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 pt-2 transition-colors"
+                    >
+                        <span>View jobs</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                </div>
+
+                {/* 3. Profile Summary Card */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100/60">
+                                <User className="h-5 w-5" />
+                            </div>
+                            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                Verified
+                            </span>
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-slate-900">Profile</h3>
+                            <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]" title={user?.email}>
+                                {user?.email || 'Account settings'}
+                            </p>
+                        </div>
+                    </div>
+                    <Link 
+                        to="/dashboard/profile" 
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 pt-2 transition-colors"
+                    >
+                        <span>View profile</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                </div>
+            </div>
+
+            {/* MAIN CONTENT GRID */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                    <h2 className="text-lg font-bold text-slate-900 tracking-tight">Get Started</h2>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                        To optimize your application workflow, begin by uploading your primary resume in PDF format. Next, save job postings you are interested in or currently interviewing for. Our matching algorithm automatically references your resume metrics when parsing job postings.
-                    </p>
-                    <div className="pt-2 flex flex-wrap gap-3">
-                        <Link to="/dashboard/resume" className="inline-flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition-all shadow-sm">
-                            <Plus className="h-4 w-4" />
-                            <span>Scan Resume</span>
-                        </Link>
-                        <Link to="/dashboard/jobs" className="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-all">
-                            <span>View Saved Jobs</span>
-                            <ArrowRight className="h-4 w-4" />
+                {/* AI RESUME SECTION */}
+                <div className="lg:col-span-2 bg-white p-6 md:p-7 rounded-2xl border border-slate-200/80 shadow-xs space-y-5 flex flex-col justify-between">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                                    <Sparkles className="h-4 w-4" />
+                                </div>
+                                <h2 className="text-lg font-bold text-slate-900 tracking-tight">Resume & AI Analysis</h2>
+                            </div>
+                        </div>
+
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                            Upload your resume to unlock AI-powered insights. Our system extracts structured information from your PDF to assist with job matching, skill evaluations, and interview prep.
+                        </p>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                            {[
+                                { title: "AI Resume Analysis", desc: "Structured parsing of skills & experience" },
+                                { title: "Job Matching", desc: "Compare against saved postings" },
+                                { title: "Skill Gap Analysis", desc: "Identify key missing qualifications" },
+                                { title: "Interview Preparation", desc: "Targeted copilot questions" }
+                            ].map((item, idx) => (
+                                <div key={idx} className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                    <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-800">{item.title}</p>
+                                        <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100 flex flex-wrap gap-3 items-center">
+                        <Link 
+                            to="/dashboard/resume" 
+                            className="inline-flex items-center gap-2 text-xs font-semibold bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-all shadow-sm"
+                        >
+                            {hasResume ? (
+                                <>
+                                    <FileText className="h-4 w-4" />
+                                    <span>View Resume</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Plus className="h-4 w-4" />
+                                    <span>Upload Resume</span>
+                                </>
+                            )}
                         </Link>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between gap-5">
-                    <div>
-                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-1">Quick Links</h2>
-                        <div className="mt-4 space-y-1">
-                            {actions.map((act) => (
-                                <Link 
-                                    key={act.title} 
-                                    to={act.path} 
-                                    className="group flex justify-between items-center p-3 rounded-xl hover:bg-slate-50 transition-all duration-200"
-                                >
-                                    <div>
-                                        <h4 className="text-sm font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">{act.title}</h4>
-                                        <p className="text-xs text-slate-500 mt-0.5">{act.desc}</p>
-                                    </div>
-                                    <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-650 group-hover:translate-x-0.5 transition-all" />
-                                </Link>
-                            ))}
+                {/* SAVED JOBS PREVIEW */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Saved Jobs Preview</h2>
+                            <Link to="/dashboard/jobs" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">
+                                View all →
+                            </Link>
                         </div>
+
+                        {loadingJobs ? (
+                            <div className="py-8 flex flex-col items-center justify-center text-slate-400">
+                                <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                                <span className="text-xs mt-2 font-medium">Loading saved jobs...</span>
+                            </div>
+                        ) : jobError ? (
+                            <div className="p-3 bg-rose-50 text-rose-700 rounded-xl text-xs flex items-center gap-2 border border-rose-100">
+                                <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
+                                <span>{jobError}</span>
+                            </div>
+                        ) : jobs.length === 0 ? (
+                            <div className="py-6 text-center space-y-3">
+                                <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mx-auto">
+                                    <Briefcase className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-slate-800">No saved jobs yet</p>
+                                    <p className="text-[11px] text-slate-500 mt-1 max-w-[200px] mx-auto">
+                                        Save jobs you are interested in to start building your job tracker.
+                                    </p>
+                                </div>
+                                <Link 
+                                    to="/dashboard/jobs" 
+                                    className="inline-flex items-center gap-1 text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 px-3.5 py-2 rounded-xl transition-all"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    <span>Add Job</span>
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {jobs.slice(0, 3).map((job) => (
+                                    <div key={job._id} className="p-3 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/20 transition-all space-y-1">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <h4 className="text-xs font-bold text-slate-900 truncate" title={job.title}>
+                                                {job.title}
+                                            </h4>
+                                            <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border shrink-0 ${statusColors[job.status] || statusColors.saved}`}>
+                                                {job.status}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                                            <span className="flex items-center gap-1 truncate">
+                                                <Building2 className="h-3 w-3 text-slate-400 shrink-0" />
+                                                {job.company}
+                                            </span>
+                                            {job.location && (
+                                                <span className="flex items-center gap-1 truncate">
+                                                    <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
+                                                    {job.location}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
+
+                    {jobs.length > 0 && (
+                        <Link 
+                            to="/dashboard/jobs"
+                            className="w-full text-center text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-700 py-2.5 rounded-xl transition-all block"
+                        >
+                            View all jobs ({jobs.length}) →
+                        </Link>
+                    )}
                 </div>
             </div>
         </div>
