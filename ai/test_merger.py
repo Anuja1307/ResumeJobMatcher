@@ -1,9 +1,10 @@
 from entity_merger import merge_entities
+import json
 
 
-# ==========================================
-# 1. RULE-BASED PARSER OUTPUT
-# ==========================================
+# -----------------------------
+# RULE PARSER OUTPUT
+# -----------------------------
 
 rule_data = {
     "name": "Anuja Sharma",
@@ -14,7 +15,7 @@ rule_data = {
     "github": "github.com/anuja-sharma",
     "portfolio": "",
 
-    "summary": "Third-year B.Tech Computer Science student at Amrita Vishwa Vidyapeetham with hands-on experience building full-stack MERN applications.",
+    "summary": "Third-year B.Tech Computer Science student.",
 
     "skills": [
         "JavaScript",
@@ -23,25 +24,11 @@ rule_data = {
         "C++",
         "React.js",
         "Tailwind CSS",
-        "HTML5",
-        "CSS3",
         "Node.js",
         "Express.js",
-        "REST APIs",
-        "JWT Authentication",
         "MongoDB",
-        "Mongoose",
-        "MongoDB Atlas",
         "Redis",
-        "Git",
-        "GitHub",
-        "Postman",
-        "VS Code",
-        "Docker (basics)",
-        "Cloudinary",
-        "Vercel",
-        "Render",
-        "Upstash"
+        "Docker"
     ],
 
     "education": [
@@ -60,24 +47,22 @@ rule_data = {
 
     "projects": [
         "AI-Powered Resume and Job Matcher",
-        "Digital Library Management System",
-        "E-Wallet Application"
+        "Digital Library Management System"
     ],
 
     "certifications": [],
 
     "achievements": [
-        "Solved 200+ problems on LeetCode",
-        "Completed The Complete Node.js Developer Course"
+        "Solved 200+ problems on LeetCode"
     ],
 
     "languages": []
 }
 
 
-# ==========================================
-# 2. BERT NER OUTPUT
-# ==========================================
+# -----------------------------
+# BERT NER OUTPUT
+# -----------------------------
 
 bert_data = {
     "persons": [],
@@ -103,12 +88,6 @@ bert_data = {
             "start": 80,
             "end": 85,
             "text": "India"
-        },
-        {
-            "type": "LOC",
-            "start": 202,
-            "end": 212,
-            "text": "Coimbatore"
         }
     ],
 
@@ -116,115 +95,90 @@ bert_data = {
 }
 
 
-# ==========================================
-# 3. RAW RESUME TEXT
-# ==========================================
+# -----------------------------
+# LLM OUTPUT
+# -----------------------------
+
+llm_data = {
+    "skills": [
+        "JavaScript",
+        "Python",
+        "React.js",
+        "Node.js",
+        "MongoDB",
+        "Docker"
+    ],
+
+    "roles": [
+        "Software Developer Intern"
+    ],
+
+    "projects": [
+        {
+            "name": "AI-Powered Resume and Job Matcher",
+            "technologies": [
+                "React",
+                "Node.js",
+                "Express",
+                "MongoDB"
+            ],
+            "description": "Built using React, Node.js, Express and MongoDB."
+        }
+    ],
+
+    "experience": [
+        {
+            "company": "ABC Technologies",
+            "role": "Software Developer Intern",
+            "description": "Worked on REST APIs and backend services using Node.js and MongoDB."
+        }
+    ]
+}
+
+
+# -----------------------------
+# RAW RESUME TEXT
+# -----------------------------
 
 raw_text = """
-Anuja Sharma anuja@gmail.com | +91 98765 43210 | Bangalore, India | github.com/anuja-sharma
+Anuja Sharma anuja@gmail.com | +91 98765 43210 | Bangalore, India
 
-SUMMARY
+Software Developer Intern at ABC Technologies.
 
-Third-year B.Tech Computer Science student at Amrita Vishwa Vidyapeetham with hands-on experience building full-stack MERN applications.
+Technical Skills:
+JavaScript, Python, Java, C++, React.js, Tailwind CSS, Node.js, Express.js, MongoDB, Redis, Docker
 
-SKILLS
-
-JavaScript, Python, Java, C++, React.js, Tailwind CSS, Node.js, Express.js, MongoDB, Redis
-
-EXPERIENCE
-
-ABC Technologies
+Experience:
 Software Developer Intern
+ABC Technologies
+Worked on REST APIs and backend services using Node.js and MongoDB.
 
-EDUCATION
-
+Education:
 B.Tech in Computer Science and Engineering
-Amrita Vishwa Vidyapeetham, Coimbatore | 2022 - 2026 | CGPA: 8.4 / 10
-
-PROJECTS
-
-AI-Powered Resume and Job Matcher
-Digital Library Management System
-E-Wallet Application
+Amrita Vishwa Vidyapeetham, Coimbatore
+2022 - 2026
+CGPA: 8.4 / 10
 """
 
 
-# ==========================================
-# 4. MERGE
-# ==========================================
+# -----------------------------
+# MERGE
+# -----------------------------
 
-merged = merge_entities(
+merged_resume = merge_entities(
     rule_data,
     bert_data,
+    llm_data,
     raw_text
 )
 
 
-# ==========================================
-# 5. DISPLAY RESULT
-# ==========================================
+# -----------------------------
+# PRINT RESULT
+# -----------------------------
 
 print("\n========================================")
-print("        MERGED RESUME")
+print("        FINAL MERGED RESUME")
 print("========================================")
 
-print("\nPERSONAL:")
-print(merged["personal"])
-
-
-print("\nSUMMARY:")
-print(merged["summary"])
-
-
-print("\nSKILLS:")
-print(merged["skills"])
-
-
-print("\nEDUCATION:")
-print(merged["education"])
-
-
-print("\nEXPERIENCE:")
-print(merged["experience"])
-
-
-print("\nPROJECTS:")
-print(merged["projects"])
-
-
-print("\nCERTIFICATIONS:")
-print(merged["certifications"])
-
-
-print("\nACHIEVEMENTS:")
-print(merged["achievements"])
-
-
-print("\nLANGUAGES:")
-print(merged["languages"])
-
-
-# ==========================================
-# 6. BERT ENTITIES
-# ==========================================
-
-print("\n========================================")
-print("          BERT NER ENTITIES")
-print("========================================")
-
-print("\nPERSONS:")
-print(merged["nerEntities"]["persons"])
-
-print("\nORGANIZATIONS:")
-print(merged["nerEntities"]["organizations"])
-
-print("\nLOCATIONS:")
-print(merged["nerEntities"]["locations"])
-
-print("\nMISCELLANEOUS:")
-print(merged["nerEntities"]["miscellaneous"])
-
-
-print("\n========================================")
-print("        MERGER TEST COMPLETE")
-print("========================================")
+print(json.dumps(merged_resume, indent=4))

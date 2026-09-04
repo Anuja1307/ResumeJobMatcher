@@ -26,6 +26,14 @@ function createEmptyResume() {
 
     languages: [],
 
+    
+    nerEntities: {
+  persons: [],
+  organizations: [],
+  locations: [],
+  miscellaneous: []
+},
+
     rawText: ""
   };
 }
