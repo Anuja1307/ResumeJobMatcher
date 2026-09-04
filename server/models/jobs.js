@@ -11,11 +11,19 @@ const jobSchema=new mongoose.Schema(
             type: String,       
             default: null
         },
+    experience: {
+        type: String,
+        default: ""
+    },
     status:{
         type:String,
         enum:['saved','applied','interviewing','offered','rejected'],
         default:'saved'
     },
+    embedding: {
+    type: [Number],
+    default: []
+},
     userId:{
         type:mongoose.Schema.Types.ObjectId,
         ref:'User',

@@ -35,7 +35,31 @@ async function extractWithAI(resumeText) {
     }
 }
 
+async function generateEmbedding(text) {
+    try {
+        const response = await axios.post(
+            `${AI_SERVICE_URL}/embed`,
+            {
+                text: text
+            }
+        );
+
+        return response.data.embedding;
+
+    } catch (error) {
+        console.error(
+            "Embedding service error:",
+            error.message
+        );
+
+        throw new Error(
+            "Embedding service is unavailable"
+        );
+    }
+}
+
 
 module.exports = {
-    extractWithAI
+    extractWithAI,
+    generateEmbedding
 };

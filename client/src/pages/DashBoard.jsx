@@ -276,7 +276,7 @@ const DashBoard = () => {
                                                 {job.status}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
                                             <span className="flex items-center gap-1 truncate">
                                                 <Building2 className="h-3 w-3 text-slate-400 shrink-0" />
                                                 {job.company}
@@ -285,6 +285,12 @@ const DashBoard = () => {
                                                 <span className="flex items-center gap-1 truncate">
                                                     <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
                                                     {job.location}
+                                                </span>
+                                            )}
+                                            {job.experience && (
+                                                <span className="flex items-center gap-1 truncate">
+                                                    <Clock className="h-3 w-3 text-slate-400 shrink-0" />
+                                                    {job.experience}
                                                 </span>
                                             )}
                                         </div>

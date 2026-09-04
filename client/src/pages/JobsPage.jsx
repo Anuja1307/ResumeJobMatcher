@@ -13,7 +13,8 @@ import {
     Loader2, 
     Briefcase,
     Sparkles,
-    ArrowRight
+    ArrowRight,
+    Clock
 } from 'lucide-react';
 
 const STATUS_OPTIONS = ['saved', 'applied', 'interviewing', 'rejected', 'offered'];
@@ -22,6 +23,7 @@ const emptyForm = {
     title: '',
     company: '',
     location: '',
+    experience: '',
     description: '',
     salary: '',
     jobUrl: '',
@@ -67,6 +69,7 @@ const JobsPage = () => {
             title: job.title,
             company: job.company,
             location: job.location,
+            experience: job.experience || '',
             description: job.description,
             salary: job.salary || '',
             jobUrl: job.jobUrl || '',
@@ -190,6 +193,7 @@ const JobsPage = () => {
                             { name: 'title', label: 'Job Title', placeholder: 'Software Engineer / Frontend Dev' },
                             { name: 'company', label: 'Company Name', placeholder: 'Google / Tech Corp' },
                             { name: 'location', label: 'Location', placeholder: 'Remote / San Francisco, CA' },
+                            { name: 'experience', label: 'Experience Required', placeholder: 'e.g. 0–2 years, 1–3 years, Fresher' },
                             { name: 'salary', label: 'Salary (Optional)', placeholder: 'e.g. $100k - $120k' },
                             { name: 'jobUrl', label: 'Job Listing URL (Optional)', placeholder: 'https://careers.company.com/job/123' }
                         ].map((fieldObj) => (
@@ -310,6 +314,12 @@ const JobsPage = () => {
                                         <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                                         <span className="truncate">{job.location}</span>
                                     </div>
+                                    {job.experience && (
+                                        <div className="flex items-center gap-1 min-w-0">
+                                            <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                            <span className="truncate">Exp: {job.experience}</span>
+                                        </div>
+                                    )}
                                     {job.salary && (
                                         <div className="flex items-center gap-1 min-w-0">
                                             <DollarSign className="h-3.5 w-3.5 text-slate-400 shrink-0" />

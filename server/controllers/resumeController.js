@@ -3,9 +3,10 @@ const User = require('../models/user');
 const cloudinary = require('../config/cloudinary');
 const { extractTextFromPdf } = require('../services/pdfParser');
 const parseResumeText = require('../services/resumeParser');
-const { extractWithAI } = require('../services/aiService');
+const { extractWithAI ,generateEmbedding } = require('../services/aiService');
 const mergeResumeData = require('../services/resumeMerger');
 const normalizeResume = require('../services/resumeNormalizer');
+const buildResumeEmbeddingText = require('../services/resumeEmbeddingBuilder');
 
 
 // ============================================================
@@ -223,6 +224,8 @@ exports.uploadResume = async (req, res) => {
 );
 
     const structuredResume = normalizeResume(mergedResume);
+    const resumeEmbeddingText =buildResumeEmbeddingText(structuredResume);
+    const resumeEmbedding =await generateEmbedding(resumeEmbeddingText);
 
         console.log(
             "===== FINAL STRUCTURED RESUME ====="
@@ -242,23 +245,13 @@ exports.uploadResume = async (req, res) => {
         // ======================================================
 
         user.resume = {
-
-            filename:
-                file.originalname,
-
-            path:
-                resumeUrl,
-
-            resumeText:
-                parsedResume,
-                
+            filename: file.originalname,
+            path: resumeUrl,
+            resumeText: parsedResume,
             structuredResume: structuredResume,
-
-
-            uploadedAt:
-                new Date()
-
-        };
+            embedding: resumeEmbedding,
+            uploadedAt: new Date()
+};
 
 
         await user.save();

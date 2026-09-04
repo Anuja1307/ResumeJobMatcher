@@ -29,6 +29,12 @@ const userSchema = new mongoose.Schema(
 
             resumeText: String,
 
+
+                embedding: {
+    type: [Number],
+    default: []
+},
+
             structuredResume: {
 
                 personal: {
