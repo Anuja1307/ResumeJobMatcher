@@ -80,9 +80,36 @@ async function extractJobSkills(description) {
     }
 }
 
+async function extractJobKeywords(description) {
+
+    try {
+
+        const response = await axios.post(
+            `${AI_SERVICE_URL}/extract-job-keywords`,
+            {
+                description
+            }
+        );
+
+        return response.data.keywords || [];
+
+    } catch (error) {
+
+        console.error(
+            "Job keyword extraction error:",
+            error.message
+        );
+
+        throw new Error(
+            "Job keyword extraction service is unavailable"
+        );
+    }
+}
+
 
 module.exports = {
     extractWithAI,
     generateEmbedding,
-    extractJobSkills
+    extractJobSkills,
+    extractJobKeywords
 };

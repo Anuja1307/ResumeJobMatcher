@@ -19,3 +19,7 @@ export const deleteJob = async (id) => {
 export const getJobMatches = async () => {
     return await api.get('/jobs/matches');
 };
+
+export const getATSScore = async (jobId) => {
+    return await api.get(`/jobs/${jobId}/ats`);
+};

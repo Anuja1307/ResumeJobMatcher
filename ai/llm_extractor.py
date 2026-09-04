@@ -188,3 +188,62 @@ Job Description:
     result = response.json()["response"]
 
     return json.loads(result)
+
+def extract_job_keywords(job_description):
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "keywords": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
+        "required": ["keywords"]
+    }
+
+    prompt = f"""
+You are an ATS keyword extraction system.
+
+Extract important keywords and technical phrases from this
+job description that an Applicant Tracking System would
+look for in a candidate's resume.
+
+Include:
+- technical concepts
+- responsibilities
+- tools
+- methodologies
+- domain-specific terms
+- important phrases
+- technologies
+
+Do NOT include generic words such as:
+"candidate", "company", "work", "team", "role", "experience".
+
+Do not invent information.
+
+Return only keywords or short phrases that are explicitly
+present in the job description.
+
+Job Description:
+{job_description}
+"""
+
+    response = requests.post(
+        "http://localhost:11434/api/generate",
+        json={
+            "model": "qwen2.5:3b",
+            "prompt": prompt,
+            "stream": False,
+            "format": schema
+        }
+    )
+
+    response.raise_for_status()
+
+    result = response.json()["response"]
+
+    return json.loads(result)

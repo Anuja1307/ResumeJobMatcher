@@ -1,5 +1,5 @@
 const Job= require('../models/jobs');
-const { generateEmbedding,extractJobSkills } = require("../services/aiService");
+const { generateEmbedding,extractJobSkills,extractJobKeywords } = require("../services/aiService");
 const User = require("../models/user");
 const { matchResumeToJobs } = require("../services/jobMatcher");
 const resumeSkills =
@@ -42,17 +42,29 @@ exports.postJobs=async (req,res)=>{
     try{
         const {title,description,company,location,salary,jobUrl,status,experience}=req.body;
 
-        let requiredSkills = [];
+       let requiredSkills = [];
+let keywords = [];
 
-        try {
-            requiredSkills = await extractJobSkills(description);
-        } 
-        catch (skillErr) {
-            console.error(
-                "Job skill extraction failed:",
-                skillErr.message
-            );
-        }
+try {
+    requiredSkills =
+        await extractJobSkills(description);
+} catch (skillErr) {
+    console.error(
+        "Job skill extraction failed:",
+        skillErr.message
+    );
+}
+
+try {
+    keywords =
+        await extractJobKeywords(description);
+} catch (keywordErr) {
+    console.error(
+        "Job keyword extraction failed:",
+        keywordErr.message
+    );
+}
+
         if(!title || !description || !company || !location){
             return res.status(400).json({success:false,message:"All fields are required"});
         }
@@ -73,7 +85,7 @@ exports.postJobs=async (req,res)=>{
         }
 
         const userId=req.user.userId || req.user.id;
-        const job=new Job({title,company,description,location,jobUrl,salary,experience,requiredSkills,status,userId,embedding});
+        const job=new Job({title,company,description,location,jobUrl,salary,experience,requiredSkills,keywords,status,userId,embedding});
 
         await job.save();
         return res.status(201).json({success:true,message:"Job created successfully",job});

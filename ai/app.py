@@ -4,7 +4,7 @@ from embeddding_service import generate_embedding
 
 from bert_ner import extract_entities
 from llm_extractor import extract_resume_information
-
+from llm_extractor import extract_job_keywords
 from llm_extractor import extract_job_skills
 
 app = FastAPI()
@@ -21,6 +21,9 @@ class EmbeddingRequest(BaseModel):
     text: str
 
 class JobSkillRequest(BaseModel):
+    description: str
+
+class JobKeywordRequest(BaseModel):
     description: str
 
 
@@ -88,3 +91,13 @@ def extract_job(request: JobSkillRequest):
     )
 
     return skills
+
+@app.post("/extract-job-keywords")
+def extract_job_keywords_endpoint(
+    request: JobKeywordRequest
+):
+    result = extract_job_keywords(
+        request.description
+    )
+
+    return result

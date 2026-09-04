@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getJobs, getJobMatches } from '../services/jobService';
+import { getJobs, getJobMatches, getATSScore } from '../services/jobService';
 import JobMatchCard from '../components/JobMatchCard';
 import JobMatchSkeleton from '../components/JobMatchSkeleton';
+import ATSModal from '../components/ATSModal';
 import { 
     Briefcase, 
     FileText, 
@@ -32,6 +33,13 @@ const DashBoard = () => {
     const [loadingMatches, setLoadingMatches] = useState(false);
     const [matchError, setMatchError] = useState('');
     const [hasFetchedMatches, setHasFetchedMatches] = useState(false);
+
+    // ATS Modal Analysis state
+    const [isAtsModalOpen, setIsAtsModalOpen] = useState(false);
+    const [atsData, setAtsData] = useState(null);
+    const [loadingAts, setLoadingAts] = useState(false);
+    const [atsError, setAtsError] = useState('');
+    const [currentAtsJobId, setCurrentAtsJobId] = useState(null);
 
     const hasResume = Boolean(user?.resume?.filename || user?.resume?.path);
     const uploadedDate = user?.resume?.uploadedAt 
@@ -100,6 +108,36 @@ const DashBoard = () => {
         fetchMatches();
     };
 
+    // ATS Analysis trigger handler
+    const handleAnalyzeATS = async (jobId) => {
+        setCurrentAtsJobId(jobId);
+        setIsAtsModalOpen(true);
+        setLoadingAts(true);
+        setAtsError('');
+        setAtsData(null);
+
+        try {
+            const response = await getATSScore(jobId);
+            if (response.data?.success) {
+                setAtsData(response.data);
+            } else {
+                setAtsError(response.data?.message || "Failed to calculate ATS analysis for this job.");
+            }
+        } catch (err) {
+            console.error("ATS scoring request error:", err);
+            const errorMessage = err.response?.data?.message || "Unable to analyze this job right now. Please try again.";
+            setAtsError(errorMessage);
+        } finally {
+            setLoadingAts(false);
+        }
+    };
+
+    const handleRetryATS = () => {
+        if (currentAtsJobId) {
+            handleAnalyzeATS(currentAtsJobId);
+        }
+    };
+
     const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Candidate');
 
     const statusColors = {
@@ -124,7 +162,7 @@ const DashBoard = () => {
                         Welcome back, {displayName} 👋
                     </h1>
                     <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-                        Your AI-powered career workspace. Manage your resume, track job opportunities, and view your real-time AI match scores.
+                        Your AI-powered career workspace. Manage your resume, track job opportunities, view your real-time AI match scores, and run ATS analysis.
                     </p>
                 </div>
             </div>
@@ -253,7 +291,7 @@ const DashBoard = () => {
                         <div className="space-y-1">
                             <h3 className="text-base font-bold text-slate-900">Resume Required</h3>
                             <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                                Upload your resume to generate AI-powered job matches.
+                                Upload your resume to generate AI-powered job matches and ATS compatibility analysis.
                             </p>
                         </div>
                         <Link
@@ -333,7 +371,11 @@ const DashBoard = () => {
                     /* CONDITION 6: DISPLAY MATCHED JOB CARDS */
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         {matches.map((matchItem, index) => (
-                            <JobMatchCard key={matchItem.job?._id || index} match={matchItem} />
+                            <JobMatchCard 
+                                key={matchItem.job?._id || index} 
+                                match={matchItem} 
+                                onAnalyzeATS={handleAnalyzeATS}
+                            />
                         ))}
                     </div>
                 )}
@@ -354,15 +396,15 @@ const DashBoard = () => {
                         </div>
 
                         <p className="text-sm text-slate-600 leading-relaxed">
-                            Upload your resume to unlock AI-powered insights. Our system extracts structured information from your PDF to assist with job matching, skill evaluations, and interview prep.
+                            Upload your resume to unlock AI-powered insights. Our system extracts structured information from your PDF to assist with job matching, ATS evaluation, skill gap identification, and interview prep.
                         </p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                             {[
                                 { title: "AI Resume Analysis", desc: "Structured parsing of skills & experience" },
                                 { title: "Job Matching", desc: "Compare against saved postings" },
-                                { title: "Skill Gap Analysis", desc: "Identify key missing qualifications" },
-                                { title: "Interview Preparation", desc: "Targeted copilot questions" }
+                                { title: "ATS Score Evaluation", desc: "Weighted keyword & skill parser scoring" },
+                                { title: "Skill Gap Analysis", desc: "Identify key missing qualifications" }
                             ].map((item, idx) => (
                                 <div key={idx} className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
                                     <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
@@ -480,6 +522,16 @@ const DashBoard = () => {
                     )}
                 </div>
             </div>
+
+            {/* ATS ANALYSIS MODAL */}
+            <ATSModal
+                isOpen={isAtsModalOpen}
+                onClose={() => setIsAtsModalOpen(false)}
+                data={atsData}
+                loading={loadingAts}
+                error={atsError}
+                onRetry={handleRetryATS}
+            />
         </div>
     );
 };

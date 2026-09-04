@@ -17,7 +17,7 @@ const getScoreColor = (score) => {
     return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200', bar: 'bg-slate-500', ring: '#64748b' };
 };
 
-const JobMatchCard = ({ match }) => {
+const JobMatchCard = ({ match, onAnalyzeATS }) => {
     if (!match) return null;
 
     const {
@@ -206,21 +206,30 @@ const JobMatchCard = ({ match }) => {
                 </div>
             </div>
 
-            {/* CARD FOOTER BUTTON */}
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3">
+            {/* CARD FOOTER BUTTONS */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2.5">
+                <button
+                    onClick={() => onAnalyzeATS && onAnalyzeATS(_id)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs py-2.5 px-3.5 rounded-xl transition-all shadow-sm hover:shadow-md cursor-pointer"
+                >
+                    <Sparkles className="h-3.5 w-3.5 text-indigo-200" />
+                    <span>Analyze ATS</span>
+                </button>
+
                 <Link
                     to="/dashboard/jobs"
-                    className="w-full inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition-all shadow-xs cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs py-2.5 px-3.5 rounded-xl transition-all cursor-pointer"
                 >
-                    <Briefcase className="h-3.5 w-3.5" />
+                    <Briefcase className="h-3.5 w-3.5 text-slate-500" />
                     <span>View Job</span>
                 </Link>
+
                 {jobUrl && (
                     <a
                         href={jobUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-slate-50 transition-all shrink-0"
+                        className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-slate-50 transition-all shrink-0"
                         title="Open job URL"
                     >
                         <ArrowUpRight className="h-4 w-4" />
