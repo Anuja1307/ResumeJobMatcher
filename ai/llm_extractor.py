@@ -35,21 +35,35 @@ def extract_resume_information(resume_text):
                 }
             },
             "experience": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "company": {"type": "string"},
-                        "role": {"type": "string"},
-                        "description": {"type": "string"}
-                    },
-                    "required": [
-                        "company",
-                        "role",
-                        "description"
-                    ]
-                }
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "company": {
+                "type": "string"
+            },
+            "role": {
+                "type": "string"
+            },
+            "startDate": {
+                "type": "string"
+            },
+            "endDate": {
+                "type": "string"
+            },
+            "description": {
+                "type": "string"
             }
+        },
+        "required": [
+            "company",
+            "role",
+            "startDate",
+            "endDate",
+            "description"
+        ]
+    }
+},
         },
         "required": [
             "skills",
@@ -58,32 +72,24 @@ def extract_resume_information(resume_text):
             "experience"
         ]
     }
-
     prompt = f"""
 You are a resume information extraction system.
 
-Extract the following information from the resume:
+Extract:
+- technical skills
+- job roles
+- projects
+- work experience
 
-1. Technical skills
-2. Job roles or job titles
-3. Projects
-4. Work experience
-5. Any additional relevant resume information such as:
-   - Certifications
-   - Publications
-   - Awards
-   - Achievements
-   - Courses
-   - Languages
-   - Volunteering
-   - Leadership experience
-   - Other relevant sections
-
-Include any additional information found in the resume using a similar structured format.
+For each work experience, extract:
+- company
+- role
+- start date
+- end date
+- description
 
 Do not invent information.
-Only extract information that is explicitly present in the resume.
-If a category is not present, return an empty array.
+If a date is not present, return an empty string.
 
 Resume:
 {resume_text}
@@ -98,6 +104,8 @@ Resume:
             "format": schema
         }
     )
+
+    response.raise_for_status()
 
     result = response.json()["response"]
 
@@ -129,3 +137,54 @@ and MongoDB.
 result = extract_resume_information(resume)
 
 print(json.dumps(result, indent=2))
+
+
+def extract_job_skills(job_description):
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "skills": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
+        "required": ["skills"]
+    }
+
+    prompt = f"""
+You are a job description skill extraction system.
+
+Extract the technical and professional skills explicitly
+required or mentioned in this job description.
+
+Include technologies, programming languages, frameworks,
+databases, tools, cloud platforms, APIs, authentication
+technologies, and relevant technical concepts.
+
+Do not invent skills.
+
+Return only skills that are actually present in the
+job description.
+
+Job Description:
+{job_description}
+"""
+
+    response = requests.post(
+        "http://localhost:11434/api/generate",
+        json={
+            "model": "qwen2.5:3b",
+            "prompt": prompt,
+            "stream": False,
+            "format": schema
+        }
+    )
+
+    response.raise_for_status()
+
+    result = response.json()["response"]
+
+    return json.loads(result)

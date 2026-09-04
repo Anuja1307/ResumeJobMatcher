@@ -11,10 +11,14 @@ const jobSchema=new mongoose.Schema(
             type: String,       
             default: null
         },
-    experience: {
-        type: String,
-        default: ""
-    },
+   experience: {
+    type: String,
+    default: ""
+},
+    requiredSkills: {
+    type: [String],
+    default: []
+},
     status:{
         type:String,
         enum:['saved','applied','interviewing','offered','rejected'],

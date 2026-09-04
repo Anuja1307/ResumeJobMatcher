@@ -27,6 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRouter);
 app.use('/api/resume',resumeRouter);
 app.use('/api/job',jobRouter);
+app.use('/api/jobs',jobRouter);
 
 const port =process.env.PORT;
 

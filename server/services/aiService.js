@@ -57,9 +57,32 @@ async function generateEmbedding(text) {
         );
     }
 }
+async function extractJobSkills(description) {
+    try {
+        const response = await axios.post(
+            `${AI_SERVICE_URL}/extract-job`,
+            {
+                description
+            }
+        );
+
+        return response.data.skills || [];
+
+    } catch (error) {
+        console.error(
+            "Job skill extraction error:",
+            error.message
+        );
+
+        throw new Error(
+            "Job skill extraction service is unavailable"
+        );
+    }
+}
 
 
 module.exports = {
     extractWithAI,
-    generateEmbedding
+    generateEmbedding,
+    extractJobSkills
 };

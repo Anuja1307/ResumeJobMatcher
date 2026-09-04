@@ -15,3 +15,7 @@ export const updateJob = async (id, jobData) => {
 export const deleteJob = async (id) => {
     return await api.delete(`/job/${id}`);
 };
+
+export const getJobMatches = async () => {
+    return await api.get('/jobs/matches');
+};

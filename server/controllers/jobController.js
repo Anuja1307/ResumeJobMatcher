@@ -1,7 +1,12 @@
 const Job= require('../models/jobs');
-const { generateEmbedding } = require("../services/aiService");
+const { generateEmbedding,extractJobSkills } = require("../services/aiService");
 const User = require("../models/user");
 const { matchResumeToJobs } = require("../services/jobMatcher");
+const resumeSkills =
+    User.resume?.structuredResume?.skills || [];
+
+const resumeExperience =
+    User.resume?.structuredResume?.experience || [];
 
 exports.getJobs=async (req,res)=>{
     const jobs=await Job.find({userId:req.user.userId || req.user.id});
@@ -36,6 +41,18 @@ exports.getJobById=async (req,res)=>{
 exports.postJobs=async (req,res)=>{
     try{
         const {title,description,company,location,salary,jobUrl,status,experience}=req.body;
+
+        let requiredSkills = [];
+
+        try {
+            requiredSkills = await extractJobSkills(description);
+        } 
+        catch (skillErr) {
+            console.error(
+                "Job skill extraction failed:",
+                skillErr.message
+            );
+        }
         if(!title || !description || !company || !location){
             return res.status(400).json({success:false,message:"All fields are required"});
         }
@@ -56,7 +73,7 @@ exports.postJobs=async (req,res)=>{
         }
 
         const userId=req.user.userId || req.user.id;
-        const job=new Job({title,company,description,location,jobUrl,salary,experience,status,userId,embedding});
+        const job=new Job({title,company,description,location,jobUrl,salary,experience,requiredSkills,status,userId,embedding});
 
         await job.save();
         return res.status(201).json({success:true,message:"Job created successfully",job});
@@ -158,8 +175,8 @@ exports.getJobMatches = async (req, res) => {
             });
         }
 
-        const resumeEmbedding =
-            user.resume?.embedding;
+        const resumeEmbedding =user.resume?.embedding;
+        const resumeSkills =user.resume?.structuredResume?.skills || [];
 
         if (
             !resumeEmbedding ||
@@ -171,16 +188,40 @@ exports.getJobMatches = async (req, res) => {
             });
         }
 
-        const matches = await matchResumeToJobs(
-            userId,
-            resumeEmbedding
-        );
+       const matches = await matchResumeToJobs(
+        userId,
+        resumeEmbedding,
+        resumeSkills,
+        resumeExperience
+    );
 
-        const results = matches.map(match => ({
-            job: match.job,
-            similarity: match.similarity,
-            matchScore: match.matchScore
-        }));
+      const results = matches.map(match => ({
+    job: match.job,
+
+    semanticScore:
+        match.semanticScore,
+
+    skillsScore:
+        match.skillsScore,
+
+    experienceScore:
+        match.experienceScore,
+
+    finalScore:
+        match.finalScore,
+
+    matchedSkills:
+        match.matchedSkills,
+
+    missingSkills:
+        match.missingSkills,
+
+    candidateYears:
+        match.candidateYears,
+
+    requiredYears:
+        match.requiredYears
+}));
 
         return res.status(200).json({
             success: true,

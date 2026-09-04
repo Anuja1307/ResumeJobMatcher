@@ -5,6 +5,7 @@ from embeddding_service import generate_embedding
 from bert_ner import extract_entities
 from llm_extractor import extract_resume_information
 
+from llm_extractor import extract_job_skills
 
 app = FastAPI()
 
@@ -18,6 +19,9 @@ class ResumeRequest(BaseModel):
 
 class EmbeddingRequest(BaseModel):
     text: str
+
+class JobSkillRequest(BaseModel):
+    description: str
 
 
 
@@ -75,3 +79,12 @@ def create_embedding(request: EmbeddingRequest):
         "embedding": embedding,
         "dimensions": len(embedding)
     }
+
+@app.post("/extract-job")
+def extract_job(request: JobSkillRequest):
+
+    skills = extract_job_skills(
+        request.description
+    )
+
+    return skills

@@ -16,7 +16,15 @@ function createEmptyResume() {
 
     education: [],
 
-    experience: [],
+   experience: [
+    {
+        company: "",
+        role: "",
+        startDate: "",
+        endDate: "",
+        description: ""
+    }
+  ],
 
     projects: [],
 
