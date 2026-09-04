@@ -5,6 +5,7 @@ const { extractTextFromPdf } = require('../services/pdfParser');
 const parseResumeText = require('../services/resumeParser');
 const { extractWithAI } = require('../services/aiService');
 const mergeResumeData = require('../services/resumeMerger');
+const normalizeResume = require('../services/resumeNormalizer');
 
 
 // ============================================================
@@ -214,14 +215,14 @@ exports.uploadResume = async (req, res) => {
         // 7. MERGE RULE + BERT + LLM
         // ======================================================
 
-        const structuredResume =
-            mergeResumeData(
-                ruleData,
-                bertData,
-                llmData,
-                parsedResume
-            );
+    const mergedResume = mergeResumeData(
+    ruleData,
+    bertData,
+    llmData,
+    parsedResume
+);
 
+    const structuredResume = normalizeResume(mergedResume);
 
         console.log(
             "===== FINAL STRUCTURED RESUME ====="
