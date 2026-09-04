@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getJobs, getJobMatches, getATSScore } from '../services/jobService';
+import { getJobs, getJobMatches, getATSScore, getJobSpecificAnalysis } from '../services/jobService';
 import JobMatchCard from '../components/JobMatchCard';
 import JobMatchSkeleton from '../components/JobMatchSkeleton';
 import ATSModal from '../components/ATSModal';
+import JobAIAnalysisModal from '../components/JobAIAnalysisModal';
 import { 
     Briefcase, 
     FileText, 
@@ -40,6 +41,13 @@ const DashBoard = () => {
     const [loadingAts, setLoadingAts] = useState(false);
     const [atsError, setAtsError] = useState('');
     const [currentAtsJobId, setCurrentAtsJobId] = useState(null);
+
+    // AI Analysis Modal state
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+    const [aiData, setAiData] = useState(null);
+    const [loadingAi, setLoadingAi] = useState(false);
+    const [aiError, setAiError] = useState('');
+    const [currentAiJobId, setCurrentAiJobId] = useState(null);
 
     const hasResume = Boolean(user?.resume?.filename || user?.resume?.path);
     const uploadedDate = user?.resume?.uploadedAt 
@@ -135,6 +143,36 @@ const DashBoard = () => {
     const handleRetryATS = () => {
         if (currentAtsJobId) {
             handleAnalyzeATS(currentAtsJobId);
+        }
+    };
+
+    // AI Analysis trigger handler
+    const handleAnalyzeAI = async (jobId) => {
+        setCurrentAiJobId(jobId);
+        setIsAiModalOpen(true);
+        setLoadingAi(true);
+        setAiError('');
+        setAiData(null);
+
+        try {
+            const response = await getJobSpecificAnalysis(jobId);
+            if (response.data?.success) {
+                setAiData(response.data);
+            } else {
+                setAiError(response.data?.message || "Failed to generate AI analysis for this job.");
+            }
+        } catch (err) {
+            console.error("AI analysis request error:", err);
+            const errorMessage = err.response?.data?.message || "Unable to generate analysis for this job right now. Please try again.";
+            setAiError(errorMessage);
+        } finally {
+            setLoadingAi(false);
+        }
+    };
+
+    const handleRetryAI = () => {
+        if (currentAiJobId) {
+            handleAnalyzeAI(currentAiJobId);
         }
     };
 
@@ -375,6 +413,7 @@ const DashBoard = () => {
                                 key={matchItem.job?._id || index} 
                                 match={matchItem} 
                                 onAnalyzeATS={handleAnalyzeATS}
+                                onAnalyzeAI={handleAnalyzeAI}
                             />
                         ))}
                     </div>
@@ -531,6 +570,16 @@ const DashBoard = () => {
                 loading={loadingAts}
                 error={atsError}
                 onRetry={handleRetryATS}
+            />
+
+            {/* AI ANALYSIS MODAL */}
+            <JobAIAnalysisModal
+                isOpen={isAiModalOpen}
+                onClose={() => setIsAiModalOpen(false)}
+                data={aiData}
+                loading={loadingAi}
+                error={aiError}
+                onRetry={handleRetryAI}
             />
         </div>
     );

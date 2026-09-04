@@ -9,5 +9,9 @@ export const uploadResume=async (file)=>{
             'Content-Type':'multipart/form-data'
         }
     });
+};
 
-    }
+export const getResumeAnalysis = async () => {
+    return await api.get('/resume/analysis');
+};
+

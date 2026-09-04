@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { uploadResume } from '../services/resumeService';
+import { uploadResume, getResumeAnalysis } from '../services/resumeService';
+import GeneralAIAnalysisView from '../components/GeneralAIAnalysisView';
 import { 
     FileText, 
     Upload, 
@@ -31,10 +32,37 @@ const ResumePage = () => {
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     
+    // AI Resume Analysis state
+    const [analysisData, setAnalysisData] = useState(null);
+    const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+    const [analysisError, setAnalysisError] = useState('');
+    const [showAnalysis, setShowAnalysis] = useState(false);
+    
     const fileInputRef = useRef(null);
 
     const resumeData = user?.resume;
     const hasResume = Boolean(resumeData?.filename || resumeData?.path);
+
+    const handleAnalyzeResume = async () => {
+        setLoadingAnalysis(true);
+        setAnalysisError('');
+        setShowAnalysis(true);
+
+        try {
+            const response = await getResumeAnalysis();
+            if (response.data?.success && response.data?.analysis) {
+                setAnalysisData(response.data.analysis);
+            } else {
+                setAnalysisError(response.data?.message || 'Failed to analyze resume.');
+            }
+        } catch (err) {
+            console.error("Resume analysis error:", err);
+            const errorMessage = err.response?.data?.message || 'Unable to analyze your resume right now. Please try again.';
+            setAnalysisError(errorMessage);
+        } finally {
+            setLoadingAnalysis(false);
+        }
+    };
     const structuredResume = resumeData?.structuredResume;
 
     const formattedDate = resumeData?.uploadedAt 
@@ -470,44 +498,57 @@ const ResumePage = () => {
                 </div>
             )}
 
-            {/* FUTURE AI INSIGHTS SECTION */}
-            <div className="bg-slate-900 text-white rounded-2xl p-6 md:p-8 space-y-6 shadow-md border border-slate-800 relative overflow-hidden">
-                <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-800 pb-4">
-                    <div className="flex items-center gap-2.5">
-                        <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                            <Sparkles className="h-5 w-5" />
+            {/* AI RESUME ANALYSIS ENTRY POINT CARD */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 md:p-8 space-y-6 shadow-md border border-slate-800 relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                            <Sparkles className="h-6 w-6" />
                         </div>
                         <div>
-                            <h2 className="text-base font-extrabold tracking-tight">AI Resume Insights</h2>
-                            <p className="text-xs text-slate-400">Future capability workspace</p>
+                            <h2 className="text-lg md:text-xl font-extrabold tracking-tight">AI Resume Analysis</h2>
+                            <p className="text-xs text-slate-300 mt-0.5">
+                                Get AI-powered feedback on your resume, strengths, weaknesses and improvement opportunities.
+                            </p>
                         </div>
                     </div>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                        <Lock className="h-3.5 w-3.5" /> Coming Soon
-                    </span>
+
+                    <button
+                        onClick={handleAnalyzeResume}
+                        disabled={loadingAnalysis || !hasResume}
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold px-6 py-3 rounded-xl text-xs transition-all shadow-md cursor-pointer disabled:opacity-50 shrink-0 self-start sm:self-auto"
+                    >
+                        {loadingAnalysis ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin text-white" />
+                                <span>Analyzing...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Sparkles className="h-4 w-4 text-indigo-200" />
+                                <span>{showAnalysis ? 'Re-analyze My Resume' : 'Analyze My Resume'}</span>
+                            </>
+                        )}
+                    </button>
                 </div>
 
-                <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-                    Your resume will eventually be analyzed for ATS compatibility, job compatibility, skill gaps, and custom improvement suggestions. AI analysis modules will activate once backend vector embeddings & scoring pipelines are linked.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                        { title: "ATS Compatibility", desc: "Parser format & keyword evaluation", status: "Planned Feature" },
-                        { title: "Job Compatibility", desc: "Semantic matching score against job specs", status: "Planned Feature" },
-                        { title: "Skill Gap Analysis", desc: "Identify key missing target skills", status: "Planned Feature" },
-                        { title: "Interview Copilot", desc: "RAG-driven resume question generator", status: "Planned Feature" }
-                    ].map((feature, idx) => (
-                        <div key={idx} className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60 space-y-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-800/40 inline-block">
-                                {feature.status}
-                            </span>
-                            <h3 className="text-xs font-extrabold text-slate-100">{feature.title}</h3>
-                            <p className="text-[11px] text-slate-400 leading-snug">{feature.desc}</p>
-                        </div>
-                    ))}
-                </div>
+                {!hasResume && (
+                    <p className="text-xs text-amber-300 bg-amber-950/40 border border-amber-800/40 p-3 rounded-xl">
+                        Please upload your PDF resume above to unlock AI-powered feedback and recommendations.
+                    </p>
+                )}
             </div>
+
+            {/* AI RESUME ANALYSIS RESULTS VIEW */}
+            {showAnalysis && (
+                <GeneralAIAnalysisView
+                    analysis={analysisData}
+                    loading={loadingAnalysis}
+                    error={analysisError}
+                    onRetry={handleAnalyzeResume}
+                    hasResume={hasResume}
+                />
+            )}
 
         </div>
     );

@@ -23,3 +23,7 @@ export const getJobMatches = async () => {
 export const getATSScore = async (jobId) => {
     return await api.get(`/jobs/${jobId}/ats`);
 };
+
+export const getJobSpecificAnalysis = async (jobId) => {
+    return await api.get(`/jobs/${jobId}/analysis`);
+};

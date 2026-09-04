@@ -105,11 +105,70 @@ async function extractJobKeywords(description) {
         );
     }
 }
+async function analyzeResume(resume) {
+
+    try {
+
+        const response = await axios.post(
+            `${AI_SERVICE_URL}/analyze-resume`,
+            {
+                resume
+            }
+        );
+
+        return response.data;
+
+    } catch (error) {
+
+        console.error(
+            "Resume analysis error:",
+            error.message
+        );
+
+        throw new Error(
+            "Resume analysis service is unavailable"
+        );
+    }
+}
+
+async function analyzeResumeForJob(
+    resume,
+    job,
+    ats
+) {
+
+    try {
+
+        const response = await axios.post(
+            `${AI_SERVICE_URL}/analyze-resume-for-job`,
+            {
+                resume,
+                job,
+                ats
+            }
+        );
+
+        return response.data;
+
+    } catch (error) {
+
+        console.error(
+            "Job-specific analysis error:",
+            error.message
+        );
+
+        throw new Error(
+            "Job-specific analysis service is unavailable"
+        );
+    }
+}
 
 
 module.exports = {
     extractWithAI,
     generateEmbedding,
     extractJobSkills,
-    extractJobKeywords
+    extractJobKeywords,
+    analyzeResume,
+    analyzeResumeForJob
 };

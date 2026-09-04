@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI,HTTPException
 from pydantic import BaseModel
 from embeddding_service import generate_embedding
 
@@ -6,6 +6,8 @@ from bert_ner import extract_entities
 from llm_extractor import extract_resume_information
 from llm_extractor import extract_job_keywords
 from llm_extractor import extract_job_skills
+from llm_extractor import extract_resume_analysis
+from llm_extractor import analyze_resume_for_job
 
 app = FastAPI()
 
@@ -25,6 +27,14 @@ class JobSkillRequest(BaseModel):
 
 class JobKeywordRequest(BaseModel):
     description: str
+
+class ResumeAnalysisRequest(BaseModel):
+    resume: dict
+
+class JobResumeAnalysisRequest(BaseModel):
+    resume: dict
+    job: dict
+    ats: dict
 
 
 
@@ -101,3 +111,50 @@ def extract_job_keywords_endpoint(
     )
 
     return result
+
+@app.post("/analyze-resume")
+def analyze_resume(request: ResumeAnalysisRequest):
+
+    try:
+
+        result = extract_resume_analysis(
+            request.resume
+        )
+
+        return result
+
+    except Exception as e:
+
+        print("Resume analysis error:", e)
+
+        raise HTTPException(
+            status_code=500,
+            detail="Resume analysis service failed"
+        )
+
+@app.post("/analyze-resume-for-job")
+def analyze_resume_for_job_endpoint(
+    request: JobResumeAnalysisRequest
+):
+
+    try:
+
+        result = analyze_resume_for_job(
+            request.resume,
+            request.job,
+            request.ats
+        )
+
+        return result
+
+    except Exception as e:
+
+        print(
+            "Job-specific resume analysis error:",
+            e
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Job-specific resume analysis failed"
+        )
