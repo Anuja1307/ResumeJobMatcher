@@ -1,5 +1,7 @@
 const Job= require('../models/jobs');
 const { generateEmbedding } = require("../services/aiService");
+const User = require("../models/user");
+const { matchResumeToJobs } = require("../services/jobMatcher");
 
 exports.getJobs=async (req,res)=>{
     const jobs=await Job.find({userId:req.user.userId || req.user.id});
@@ -72,6 +74,7 @@ exports.postJobs=async (req,res)=>{
 exports.updateJob=async (req,res)=>{
    try{
     const job=await Job.findById(req.params.id);
+    const {title,description,company,location,salary,jobUrl,status,experience}=req.body;
     if(!job){
         return res.status(404).json({success:false,message:"Job not found"});
     }
@@ -79,8 +82,6 @@ exports.updateJob=async (req,res)=>{
     if(job.userId.toString()!==userId.toString()){
         return res.status(403).json({success:false,message:"Unauthorized access"});
    }
-   const {title,description,company,location,salary,status,jobUrl,experience}=req.body;
-
    let contentChanged = false;
 
    if(title!==undefined && title!==job.title){ job.title=title; contentChanged=true; }
@@ -144,3 +145,58 @@ exports.deleteJob=async (req,res)=>{
         return res.status(500).json({success:false,message:"Server error"});
     }
 }
+exports.getJobMatches = async (req, res) => {
+    try {
+        const userId = req.user.userId || req.user.id;
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        const resumeEmbedding =
+            user.resume?.embedding;
+
+        if (
+            !resumeEmbedding ||
+            resumeEmbedding.length === 0
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Please upload a resume first"
+            });
+        }
+
+        const matches = await matchResumeToJobs(
+            userId,
+            resumeEmbedding
+        );
+
+        const results = matches.map(match => ({
+            job: match.job,
+            similarity: match.similarity,
+            matchScore: match.matchScore
+        }));
+
+        return res.status(200).json({
+            success: true,
+            matches: results
+        });
+
+    } catch (err) {
+
+        console.error(
+            "Error generating job matches:",
+            err
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
