@@ -503,3 +503,281 @@ ATS ANALYSIS:
     result = response.json()["response"]
 
     return json.loads(result)
+
+def generate_interview_question(
+    resume,
+    job,
+    previous_question=None,
+    previous_answer=None
+):
+
+    resume_context = {
+        "skills": resume.get("skills", []),
+        "experience": resume.get("experience", []),
+        "projects": resume.get("projects", [])
+    }
+
+    job_context = {
+        "title": job.get("title", ""),
+        "requiredSkills": job.get("requiredSkills", []),
+        "description": job.get("description", "")
+    }
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "question": {
+                "type": "string",
+                "minLength": 10
+            },
+            "questionType": {
+                "type": "string"
+            },
+            "topic": {
+                "type": "string"
+            },
+            "difficulty": {
+                "type": "string"
+            }
+        },
+        "required": [
+            "question",
+            "questionType",
+            "topic",
+            "difficulty"
+        ]
+    }
+
+    # ---------------------------------------------------------
+    # First question
+    # ---------------------------------------------------------
+
+    if not previous_question or not previous_answer:
+
+        prompt = f"""
+You are conducting a realistic technical job interview.
+
+Generate ONE interview question for this candidate.
+
+CANDIDATE:
+{json.dumps(resume_context, indent=2)}
+
+JOB:
+{json.dumps(job_context, indent=2)}
+
+RULES:
+
+- Generate exactly ONE question.
+- Focus on ONE specific concept.
+- Maximum 25 words.
+- The candidate should answer in 1-2 minutes.
+- Ask exactly ONE thing.
+- Do not ask for code.
+- Do not ask for an entire system design.
+- Do not combine multiple technologies.
+- Do not combine unrelated topics.
+- Do not invent candidate experience.
+- Prefer a topic appearing in both the resume and job.
+- Make the question sound natural in a real interview.
+
+GOOD:
+"How did you implement JWT authentication in your Node.js application?"
+
+"How did you use MongoDB in your project?"
+
+BAD:
+"Explain JWT, MongoDB, Redis, React, Docker, CI/CD and AWS."
+
+Return only valid JSON.
+"""
+
+    # ---------------------------------------------------------
+    # Follow-up question
+    # ---------------------------------------------------------
+
+    else:
+
+        prompt = f"""
+You are conducting a realistic technical job interview.
+
+Generate ONE follow-up question based specifically on the
+candidate's previous answer.
+
+CANDIDATE:
+{json.dumps(resume_context, indent=2)}
+
+JOB:
+{json.dumps(job_context, indent=2)}
+
+PREVIOUS QUESTION:
+{previous_question}
+
+CANDIDATE'S ANSWER:
+{previous_answer}
+
+RULES:
+
+- Generate exactly ONE follow-up question.
+- The question MUST directly relate to the candidate's previous answer.
+- Focus on ONE specific concept.
+- Maximum 25 words.
+- The candidate should answer in 1-2 minutes.
+- Ask exactly ONE thing.
+- Do not ask for code.
+- Do not repeat the previous question.
+- Do not suddenly switch to an unrelated topic.
+- Do not combine multiple technologies.
+- Do not invent experience.
+- If the answer is weak, ask a question that probes the missing understanding.
+- If the answer is strong, increase the difficulty slightly.
+- Make the question sound natural in a real interview.
+
+GOOD:
+Previous question:
+"How did you implement JWT authentication?"
+
+Answer:
+"I created middleware that verifies the JWT before allowing
+access to protected routes."
+
+Follow-up:
+"How would you handle an expired JWT in your authentication middleware?"
+
+BAD:
+"Now explain Redis, MongoDB, Docker, AWS and CI/CD."
+
+Return only valid JSON.
+"""
+
+    response = requests.post(
+        "http://localhost:11434/api/generate",
+        json={
+            "model": "qwen2.5:3b",
+            "prompt": prompt,
+            "stream": False,
+            "format": schema
+        },
+        timeout=120
+    )
+
+    response.raise_for_status()
+
+    result = response.json()["response"]
+
+    return json.loads(result)
+
+def evaluate_interview_answer(
+    question,
+    answer,
+    resume,
+    job
+):
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "score": {
+                "type": "integer"
+            },
+            "strengths": {
+    "type": "array",
+    "items": {
+        "type": "string",
+        "minLength": 10
+    }
+},
+            "improvements": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "minLength": 10
+                }
+            },
+            "idealAnswerPoints": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "minLength": 10
+                }
+            },
+            "nextQuestion": {
+                "type": "string"
+            }
+        },
+        "required": [
+            "score",
+            "strengths",
+            "improvements",
+            "idealAnswerPoints",
+            "nextQuestion"
+        ]
+    }
+
+    prompt = f"""
+You are an expert technical interviewer evaluating a candidate's
+answer to an interview question.
+
+You MUST evaluate the candidate's actual answer.
+Do NOT generate placeholder text.
+
+QUESTION:
+{question}
+
+CANDIDATE ANSWER:
+{answer}
+
+CANDIDATE RESUME:
+{json.dumps(resume, indent=2)}
+
+JOB:
+{json.dumps(job, indent=2)}
+
+Evaluate the candidate based on:
+
+1. Technical correctness
+2. Relevance to the question
+3. Clarity
+4. Depth of understanding
+5. Practical understanding
+6. Alignment with the candidate's resume and the job
+
+SCORING:
+- 0-2 = Very poor
+- 3-4 = Poor
+- 5-6 = Average
+- 7-8 = Good
+- 9 = Very good
+- 10 = Excellent
+
+IMPORTANT RULES:
+
+- Evaluate ONLY the answer provided.
+- Do not invent things the candidate said.
+- Do not assume knowledge that was not demonstrated.
+- Strengths must describe things the candidate actually did well.
+- Improvements must describe specific weaknesses or missing details
+  in the candidate's actual answer.
+- idealAnswerPoints must contain important points that would make the
+  answer stronger.
+- Generate ONE realistic follow-up question.
+- Do not use placeholder words such as:
+  "strength1", "strength2", "improvement1", "improvement2".
+- Each strength and improvement must be a complete, meaningful sentence.
+- Keep the feedback specific to the question.
+- Return ONLY valid JSON matching the requested schema.
+"""
+    response = requests.post(
+        "http://localhost:11434/api/generate",
+        json={
+            "model": "qwen2.5:3b",
+            "prompt": prompt,
+            "stream": False,
+            "format": schema
+        }
+    )
+
+    response.raise_for_status()
+
+    result = response.json()["response"]
+
+    return json.loads(result)

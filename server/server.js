@@ -8,6 +8,8 @@ env.config();
 const authRouter=require('./routes/authRouter');
 const resumeRouter=require('./routes/resumeRouter');
 const jobRouter=require('./routes/jobRouter');
+const interviewRoutes = require("./routes/interviewRouter");
+
 const connectDb=require('./config/db');
 
 const app = express();
@@ -29,6 +31,7 @@ app.use('/api/resume',resumeRouter);
 app.use('/api/job',jobRouter);
 app.use('/api/jobs',jobRouter);
 
+app.use('/api/interview', interviewRoutes);
 const port =process.env.PORT;
 
 app.get('/', (req, res) => {

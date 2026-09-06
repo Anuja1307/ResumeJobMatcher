@@ -163,6 +163,64 @@ async function analyzeResumeForJob(
     }
 }
 
+async function generateInterviewQuestion(resume, job) {
+try{
+
+
+    const response = await axios.post(
+        `${AI_SERVICE_URL}/generate-interview-question`,
+        {
+            resume,
+            job
+        }
+    );
+
+    return response.data;
+}
+
+    catch (error) {
+
+        console.error(
+            "Interview question generation error:",
+            error.message
+        );
+
+        throw new Error(
+            "Interview question generation service is unavailable"
+        );
+    }
+}
+async function evaluateInterviewAnswer(
+    question,
+    answer,
+    resume,
+    job
+) {
+    try {
+        const response = await axios.post(
+            `${AI_SERVICE_URL}/evaluate-interview-answer`,
+            {
+                question,
+                answer,
+                resume,
+                job
+            }
+        );
+
+        return response.data;
+
+    } catch (error) {
+        console.error(
+            "Interview answer evaluation error:",
+            error.message
+        );
+
+        throw new Error(
+            "Interview answer evaluation service is unavailable"
+        );
+    }
+}
+
 
 module.exports = {
     extractWithAI,
@@ -170,5 +228,7 @@ module.exports = {
     extractJobSkills,
     extractJobKeywords,
     analyzeResume,
-    analyzeResumeForJob
+    analyzeResumeForJob,
+    generateInterviewQuestion,
+    evaluateInterviewAnswer
 };
