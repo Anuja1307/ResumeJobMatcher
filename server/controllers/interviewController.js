@@ -143,10 +143,7 @@ const submitAnswer = async (req, res) => {
         }
 
         // 3. Get job
-        const job = await Job.findOne({
-            _id: session.jobId,
-            userId: userId
-        });
+        const job = await Job.findById(session.jobId);
 
         if (!job) {
             return res.status(404).json({
@@ -180,43 +177,42 @@ const submitAnswer = async (req, res) => {
         currentQuestion.idealAnswerPoints =
             evaluation.idealAnswerPoints || [];
 
-        // 7. Generate next question
-        const nextQuestion = await generateInterviewQuestion(
-    user.resume,
-    job,
-    currentQuestion.question,
-    answer
-);
+        // 7. Generate next question if max questions limit not reached (max 5)
+        const MAX_QUESTIONS = 5;
+        let nextQuestion = null;
 
-        // 8. Add next question to session
-        session.questions.push({
-            question: nextQuestion.question,
-            questionType: nextQuestion.questionType,
-            topic: nextQuestion.topic,
-            difficulty: nextQuestion.difficulty
-        });
+        if (session.questions.length < MAX_QUESTIONS) {
+            nextQuestion = await generateInterviewQuestion(
+                user.resume,
+                job,
+                currentQuestion.question,
+                answer
+            );
 
-        // 9. Save session
+            session.questions.push({
+                question: nextQuestion.question,
+                questionType: nextQuestion.questionType,
+                topic: nextQuestion.topic,
+                difficulty: nextQuestion.difficulty
+            });
+        }
+
+        // 8. Save session
         await session.save();
 
-        // 10. Return evaluation + next question
+        // 9. Return evaluation + next question
         res.status(200).json({
             success: true,
-
             evaluation: {
                 score: evaluation.score,
                 strengths: evaluation.strengths || [],
-                improvements:
-                    evaluation.improvements || [],
-                idealAnswerPoints:
-                    evaluation.idealAnswerPoints || []
+                improvements: evaluation.improvements || [],
+                idealAnswerPoints: evaluation.idealAnswerPoints || []
             },
-
             nextQuestion
         });
 
     } catch (error) {
-
         console.error(
             "Submit interview answer error:",
             error.message
@@ -286,20 +282,20 @@ const completeInterview = async (req, res) => {
             });
         }
 
-        const unansweredQuestion =
-            session.questions.find(
-                question => !question.answer
-            );
+        // Remove trailing unanswered questions if user finishes interview early
+        session.questions = session.questions.filter(
+            question => question.answer && question.answer.trim() !== ""
+        );
 
-        if (unansweredQuestion) {
+        if (session.questions.length === 0) {
             return res.status(400).json({
-                message: "Please answer all interview questions before completing the interview"
+                message: "Please answer at least one interview question before completing the interview"
             });
         }
 
         const scores = session.questions
             .map(question => question.score)
-            .filter(score => score !== null);
+            .filter(score => score !== null && score !== undefined);
 
         if (scores.length === 0) {
             return res.status(400).json({
@@ -312,12 +308,9 @@ const completeInterview = async (req, res) => {
             0
         );
 
-        const overallScore =
-            totalScore / scores.length;
+        const overallScore = totalScore / scores.length;
 
-        session.overallScore =
-            Math.round(overallScore * 10) / 10;
-
+        session.overallScore = Math.round(overallScore * 10) / 10;
         session.status = "completed";
         session.completedAt = new Date();
 

@@ -7,6 +7,8 @@ import ResumePage from './pages/ResumePage';
 import JobsPage from './pages/JobsPage';
 import ProfilePage from './pages/ProfilePage';
 
+import InterviewPage from './pages/InterviewPage';
+
 import Mainlayout from './layouts/Mainlayout';
 
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -39,6 +41,24 @@ const App=()=>{
             <ProtectedRoute>
                 <Mainlayout>
                     <JobsPage/>
+                </Mainlayout>
+            </ProtectedRoute>
+           }>
+           </Route>
+
+           <Route path="/dashboard/interview/:sessionId" element={
+            <ProtectedRoute>
+                <Mainlayout>
+                    <InterviewPage/>
+                </Mainlayout>
+            </ProtectedRoute>
+           }>
+           </Route>
+
+           <Route path="/interview/:sessionId" element={
+            <ProtectedRoute>
+                <Mainlayout>
+                    <InterviewPage/>
                 </Mainlayout>
             </ProtectedRoute>
            }>

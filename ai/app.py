@@ -308,7 +308,7 @@ def generate_interview_question_endpoint(
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to generate interview question"
+            detail=f"Failed to generate interview question: {str(e)}"
         )
 # ============================================================
 # Evaluate Interview Answer
@@ -339,5 +339,5 @@ def evaluate_interview_answer_endpoint(
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to evaluate interview answer"
+            detail=f"Failed to evaluate interview answer: {str(e)}"
         )

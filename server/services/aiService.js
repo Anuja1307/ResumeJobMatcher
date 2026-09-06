@@ -163,33 +163,37 @@ async function analyzeResumeForJob(
     }
 }
 
-async function generateInterviewQuestion(resume, job) {
-try{
+async function generateInterviewQuestion(
+    resume,
+    job,
+    previousQuestion = null,
+    previousAnswer = null
+) {
+    try {
+        const response = await axios.post(
+            `${AI_SERVICE_URL}/generate-interview-question`,
+            {
+                resume,
+                job,
+                previousQuestion,
+                previousAnswer
+            },
+            { timeout: 120000 }
+        );
 
-
-    const response = await axios.post(
-        `${AI_SERVICE_URL}/generate-interview-question`,
-        {
-            resume,
-            job
-        }
-    );
-
-    return response.data;
-}
-
-    catch (error) {
-
+        return response.data;
+    } catch (error) {
         console.error(
             "Interview question generation error:",
-            error.message
+            error.response?.data || error.message
         );
 
         throw new Error(
-            "Interview question generation service is unavailable"
+            error.response?.data?.detail || "Interview question generation service is unavailable"
         );
     }
 }
+
 async function evaluateInterviewAnswer(
     question,
     answer,
@@ -204,7 +208,8 @@ async function evaluateInterviewAnswer(
                 answer,
                 resume,
                 job
-            }
+            },
+            { timeout: 120000 }
         );
 
         return response.data;
@@ -212,11 +217,11 @@ async function evaluateInterviewAnswer(
     } catch (error) {
         console.error(
             "Interview answer evaluation error:",
-            error.message
+            error.response?.data || error.message
         );
 
         throw new Error(
-            "Interview answer evaluation service is unavailable"
+            error.response?.data?.detail || "Interview answer evaluation service is unavailable"
         );
     }
 }

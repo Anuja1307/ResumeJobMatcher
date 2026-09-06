@@ -111,7 +111,8 @@ Resume:
 
     return json.loads(result)
 
-resume = """
+if __name__ == "__main__":
+    resume = """
 Anuja Sharma
 
 I am a Computer Science student with experience building
@@ -134,9 +135,10 @@ Worked on REST APIs and backend services using Node.js
 and MongoDB.
 """
 
-result = extract_resume_information(resume)
+    result = extract_resume_information(resume)
 
-print(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2))
+
 
 
 def extract_job_skills(job_description):
@@ -511,41 +513,24 @@ def generate_interview_question(
     previous_answer=None
 ):
 
+    resume_data = (
+        resume.get("structuredResume", resume)
+        if isinstance(resume, dict)
+        else {}
+    )
+    if not isinstance(resume_data, dict):
+        resume_data = resume if isinstance(resume, dict) else {}
+
     resume_context = {
-        "skills": resume.get("skills", []),
-        "experience": resume.get("experience", []),
-        "projects": resume.get("projects", [])
+        "skills": resume_data.get("skills", []),
+        "experience": resume_data.get("experience", []),
+        "projects": resume_data.get("projects", [])
     }
 
     job_context = {
-        "title": job.get("title", ""),
-        "requiredSkills": job.get("requiredSkills", []),
-        "description": job.get("description", "")
-    }
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "question": {
-                "type": "string",
-                "minLength": 10
-            },
-            "questionType": {
-                "type": "string"
-            },
-            "topic": {
-                "type": "string"
-            },
-            "difficulty": {
-                "type": "string"
-            }
-        },
-        "required": [
-            "question",
-            "questionType",
-            "topic",
-            "difficulty"
-        ]
+        "title": job.get("title", "") if isinstance(job, dict) else "",
+        "requiredSkills": job.get("requiredSkills", []) if isinstance(job, dict) else [],
+        "description": job.get("description", "") if isinstance(job, dict) else ""
     }
 
     # ---------------------------------------------------------
@@ -588,7 +573,13 @@ GOOD:
 BAD:
 "Explain JWT, MongoDB, Redis, React, Docker, CI/CD and AWS."
 
-Return only valid JSON.
+Return ONLY valid JSON matching this schema:
+{{
+  "question": "string",
+  "questionType": "string",
+  "topic": "string",
+  "difficulty": "string"
+}}
 """
 
     # ---------------------------------------------------------
@@ -646,25 +637,46 @@ Follow-up:
 BAD:
 "Now explain Redis, MongoDB, Docker, AWS and CI/CD."
 
-Return only valid JSON.
+Return ONLY valid JSON matching this schema:
+{{
+  "question": "string",
+  "questionType": "string",
+  "topic": "string",
+  "difficulty": "string"
+}}
 """
 
-    response = requests.post(
-        "http://localhost:11434/api/generate",
-        json={
-            "model": "qwen2.5:3b",
-            "prompt": prompt,
-            "stream": False,
-            "format": schema
-        },
-        timeout=120
-    )
+    try:
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "qwen2.5:3b",
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "options": {
+                    "temperature": 0.3
+                }
+            },
+            timeout=120
+        )
 
-    response.raise_for_status()
+        response.raise_for_status()
 
-    result = response.json()["response"]
+        result_text = response.json().get("response", "").strip()
 
-    return json.loads(result)
+        try:
+            return json.loads(result_text)
+        except json.JSONDecodeError:
+            import re
+            match = re.search(r'\{.*\}', result_text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            raise
+
+    except Exception as e:
+        print("Error during generate_interview_question Ollama request:", e)
+        raise RuntimeError(f"Ollama interview question generation failed: {e}")
 
 def evaluate_interview_answer(
     question,
@@ -673,44 +685,24 @@ def evaluate_interview_answer(
     job
 ):
 
-    schema = {
-        "type": "object",
-        "properties": {
-            "score": {
-                "type": "integer"
-            },
-            "strengths": {
-    "type": "array",
-    "items": {
-        "type": "string",
-        "minLength": 10
+    resume_data = (
+        resume.get("structuredResume", resume)
+        if isinstance(resume, dict)
+        else {}
+    )
+    if not isinstance(resume_data, dict):
+        resume_data = resume if isinstance(resume, dict) else {}
+
+    resume_context = {
+        "skills": resume_data.get("skills", []),
+        "experience": resume_data.get("experience", []),
+        "projects": resume_data.get("projects", [])
     }
-},
-            "improvements": {
-                "type": "array",
-                "items": {
-                    "type": "string",
-                    "minLength": 10
-                }
-            },
-            "idealAnswerPoints": {
-                "type": "array",
-                "items": {
-                    "type": "string",
-                    "minLength": 10
-                }
-            },
-            "nextQuestion": {
-                "type": "string"
-            }
-        },
-        "required": [
-            "score",
-            "strengths",
-            "improvements",
-            "idealAnswerPoints",
-            "nextQuestion"
-        ]
+
+    job_context = {
+        "title": job.get("title", "") if isinstance(job, dict) else "",
+        "requiredSkills": job.get("requiredSkills", []) if isinstance(job, dict) else [],
+        "description": job.get("description", "") if isinstance(job, dict) else ""
     }
 
     prompt = f"""
@@ -727,10 +719,10 @@ CANDIDATE ANSWER:
 {answer}
 
 CANDIDATE RESUME:
-{json.dumps(resume, indent=2)}
+{json.dumps(resume_context, indent=2)}
 
 JOB:
-{json.dumps(job, indent=2)}
+{json.dumps(job_context, indent=2)}
 
 Evaluate the candidate based on:
 
@@ -764,20 +756,44 @@ IMPORTANT RULES:
   "strength1", "strength2", "improvement1", "improvement2".
 - Each strength and improvement must be a complete, meaningful sentence.
 - Keep the feedback specific to the question.
-- Return ONLY valid JSON matching the requested schema.
+
+Return ONLY valid JSON matching this schema:
+{{
+  "score": 7,
+  "strengths": ["complete sentence..."],
+  "improvements": ["complete sentence..."],
+  "idealAnswerPoints": ["complete sentence..."],
+  "nextQuestion": "concise adaptive follow-up question"
+}}
 """
-    response = requests.post(
-        "http://localhost:11434/api/generate",
-        json={
-            "model": "qwen2.5:3b",
-            "prompt": prompt,
-            "stream": False,
-            "format": schema
-        }
-    )
+    try:
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "qwen2.5:3b",
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "options": {
+                    "temperature": 0.3
+                }
+            },
+            timeout=120
+        )
 
-    response.raise_for_status()
+        response.raise_for_status()
 
-    result = response.json()["response"]
+        result_text = response.json().get("response", "").strip()
 
-    return json.loads(result)
+        try:
+            return json.loads(result_text)
+        except json.JSONDecodeError:
+            import re
+            match = re.search(r'\{.*\}', result_text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            raise
+
+    except Exception as e:
+        print("Error during evaluate_interview_answer Ollama request:", e)
+        raise RuntimeError(f"Ollama interview answer evaluation failed: {e}")

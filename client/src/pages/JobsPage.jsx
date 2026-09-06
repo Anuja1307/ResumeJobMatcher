@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getJobs, saveJob, updateJob, deleteJob } from '../services/jobService';
+import { startInterview } from '../services/interviewService';
 import { 
     Plus, 
     Edit2, 
@@ -31,6 +33,7 @@ const emptyForm = {
 };
 
 const JobsPage = () => {
+    const navigate = useNavigate();
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -38,6 +41,7 @@ const JobsPage = () => {
     const [form, setForm] = useState(emptyForm);
     const [editingId, setEditingId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [startingInterviewId, setStartingInterviewId] = useState(null);
 
     useEffect(() => {
         const fetchJobs = async () => {
@@ -113,6 +117,23 @@ const JobsPage = () => {
             setJobs(jobs.filter(j => j._id !== id));
         } catch (err) {
             setError('Failed to delete job posting');
+        }
+    };
+
+    const handleStartInterview = async (jobId) => {
+        setStartingInterviewId(jobId);
+        setError('');
+        try {
+            const response = await startInterview(jobId);
+            if (response.data?.success && response.data?.sessionId) {
+                navigate(`/dashboard/interview/${response.data.sessionId}`);
+            } else {
+                setError('Unable to start the interview. Please try again.');
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Unable to start the interview. Please try again.');
+        } finally {
+            setStartingInterviewId(null);
         }
     };
 
@@ -331,11 +352,28 @@ const JobsPage = () => {
                                 <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">{job.description}</p>
                             </div>
 
-                            <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
                                 <div className="flex items-center gap-3">
                                     <button
+                                        onClick={() => handleStartInterview(job._id)}
+                                        disabled={startingInterviewId === job._id}
+                                        className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                                    >
+                                        {startingInterviewId === job._id ? (
+                                            <>
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                <span>Starting...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="h-3.5 w-3.5" />
+                                                <span>Start Interview</span>
+                                            </>
+                                        )}
+                                    </button>
+                                    <button
                                         onClick={() => handleEdit(job)}
-                                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 transition-all cursor-pointer"
+                                        className="text-xs font-semibold text-slate-600 hover:text-indigo-600 flex items-center gap-1 transition-all cursor-pointer"
                                     >
                                         <Edit2 className="h-3.5 w-3.5" />
                                         <span>Edit</span>
