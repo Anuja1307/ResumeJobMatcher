@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, FileText, Briefcase, User, LogOut, Sparkles } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, User, LogOut, Sparkles, Bot } from 'lucide-react';
 
 const MainLayout = ({ children }) => {
     const { user, logout } = useAuth();
@@ -23,6 +23,7 @@ const MainLayout = ({ children }) => {
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { label: 'Resume', path: '/dashboard/resume', icon: FileText },
         { label: 'Saved Jobs', path: '/dashboard/jobs', icon: Briefcase },
+        { label: 'Career Assistant', path: '/dashboard/career-assistant', icon: Bot },
         { label: 'Profile', path: '/dashboard/profile', icon: User },
     ];
 

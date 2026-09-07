@@ -8,6 +8,7 @@ import JobsPage from './pages/JobsPage';
 import ProfilePage from './pages/ProfilePage';
 
 import InterviewPage from './pages/InterviewPage';
+import CareerAssistantPage from './pages/CareerAssistantPage';
 
 import Mainlayout from './layouts/Mainlayout';
 
@@ -41,6 +42,24 @@ const App=()=>{
             <ProtectedRoute>
                 <Mainlayout>
                     <JobsPage/>
+                </Mainlayout>
+            </ProtectedRoute>
+           }>
+           </Route>
+
+           <Route path="/dashboard/career-assistant" element={
+            <ProtectedRoute>
+                <Mainlayout>
+                    <CareerAssistantPage/>
+                </Mainlayout>
+            </ProtectedRoute>
+           }>
+           </Route>
+
+           <Route path="/career-assistant" element={
+            <ProtectedRoute>
+                <Mainlayout>
+                    <CareerAssistantPage/>
                 </Mainlayout>
             </ProtectedRoute>
            }>

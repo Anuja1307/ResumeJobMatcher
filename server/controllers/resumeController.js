@@ -7,6 +7,11 @@ const { extractWithAI ,generateEmbedding } = require('../services/aiService');
 const mergeResumeData = require('../services/resumeMerger');
 const normalizeResume = require('../services/resumeNormalizer');
 const buildResumeEmbeddingText = require('../services/resumeEmbeddingBuilder');
+const { createResumeChunks } = require("../services/chunkingService");
+const { storeChunks } = require("../services/knowledgeService");
+const {
+    replaceResumeChunks
+} = require("../services/knowledgeService");
 
 
 // ============================================================
@@ -223,10 +228,35 @@ exports.uploadResume = async (req, res) => {
     parsedResume
 );
 
-    const structuredResume = normalizeResume(mergedResume);
-    const resumeEmbeddingText =buildResumeEmbeddingText(structuredResume);
-    const resumeEmbedding =await generateEmbedding(resumeEmbeddingText);
+   const structuredResume = normalizeResume(mergedResume);
 
+// Existing whole-resume embedding
+const resumeEmbeddingText =
+    buildResumeEmbeddingText(structuredResume);
+
+const resumeEmbedding =
+    await generateEmbedding(resumeEmbeddingText);
+
+
+// ======================================================
+// RAG CHUNKING + EMBEDDINGS
+// ======================================================
+
+const resumeChunks =
+    createResumeChunks(structuredResume);
+
+console.log(
+    `===== CREATED ${resumeChunks.length} RESUME CHUNKS =====`
+);
+
+await replaceResumeChunks({
+    userId,
+    chunks: resumeChunks
+});
+
+console.log(
+    "===== RESUME RAG INDEXING COMPLETE ====="
+);
         console.log(
             "===== FINAL STRUCTURED RESUME ====="
         );

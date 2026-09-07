@@ -6,7 +6,13 @@ const User = require("../models/user");
 const {
     generateInterviewQuestion,evaluateInterviewAnswer
 } = require("../services/aiService");
+const {
+    createInterviewChunks
+} = require("../services/interviewChunkService");
 
+const {
+    replaceInterviewChunks
+} = require("../services/knowledgeService");
 
 
 const startInterview = async (req, res) => {
@@ -315,6 +321,21 @@ const completeInterview = async (req, res) => {
         session.completedAt = new Date();
 
         await session.save();
+
+        // Create RAG chunks from the completed interview
+const interviewChunks =
+    createInterviewChunks(session);
+
+// Store interview chunks in the knowledge base
+if (interviewChunks.length > 0) {
+
+    await replaceInterviewChunks({
+        userId: req.user.userId,
+        sessionId: session._id,
+        chunks: interviewChunks,
+        jobId: session.jobId
+    });
+}
 
         res.status(200).json({
             success: true,

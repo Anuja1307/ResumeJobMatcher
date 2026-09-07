@@ -9,6 +9,9 @@ const authRouter=require('./routes/authRouter');
 const resumeRouter=require('./routes/resumeRouter');
 const jobRouter=require('./routes/jobRouter');
 const interviewRoutes = require("./routes/interviewRouter");
+const ragRoutes = require("./routes/ragRoutes");
+const careerChatRoutes =
+    require("./routes/careerChatRoutes");
 
 const connectDb=require('./config/db');
 
@@ -30,6 +33,14 @@ app.use('/api/auth', authRouter);
 app.use('/api/resume',resumeRouter);
 app.use('/api/job',jobRouter);
 app.use('/api/jobs',jobRouter);
+app.use(
+    "/api/rag",
+    ragRoutes
+);
+app.use(
+    "/api/career-chat",
+    careerChatRoutes
+);
 
 app.use('/api/interview', interviewRoutes);
 const port =process.env.PORT;

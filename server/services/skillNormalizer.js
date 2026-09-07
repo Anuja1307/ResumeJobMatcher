@@ -32,7 +32,12 @@ function normalizeSkill(skill) {
         "tailwindcss": "Tailwind CSS",
 
         "postgres": "PostgreSQL",
-        "postgresql": "PostgreSQL"
+        "postgresql": "PostgreSQL",
+
+            "jwt": "JWT",
+            "jwt authentication": "JWT",
+            "json web token": "JWT",
+            "json web tokens": "JWT"
     };
 
     const key = cleaned.toLowerCase();
