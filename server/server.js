@@ -14,10 +14,12 @@ const careerChatRoutes =
     require("./routes/careerChatRoutes");
 
 const connectDb=require('./config/db');
+const { connectRedis } = require("./config/redis");
 
 const app = express();
 
 connectDb();
+connectRedis();
 
 app.use(cors({
     origin: 'http://localhost:5173',   

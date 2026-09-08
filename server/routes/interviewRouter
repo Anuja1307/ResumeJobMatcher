@@ -1,6 +1,7 @@
 const express = require("express");
 
 const router = express.Router();
+const rateLimiter = require("../middlewares/rateLimiter");
 
 const {
     startInterview,submitAnswer, getInterviewSession, completeInterview
@@ -11,6 +12,7 @@ const protect = require("../middlewares/authMiddleware");
 router.post(
     "/start",
     protect,
+    rateLimiter(5, 60, "interview-start"),
     startInterview
 );
 
@@ -23,6 +25,7 @@ router.get("/test", (req, res) => {
 router.post(
     "/:sessionId/answer",
     protect,
+    rateLimiter(10, 60, "interview-answer"),
     submitAnswer
 );
 
