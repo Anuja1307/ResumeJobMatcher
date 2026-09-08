@@ -9,9 +9,17 @@ const {
 
 const protect = require("../middlewares/authMiddleware");
 
+const validate = require("../middlewares/validator");
+
+const {
+    interviewStartSchema,
+    interviewAnswerSchema
+} = require("../validators/aiValidator");
+
 router.post(
     "/start",
     protect,
+    validate(interviewStartSchema),
     rateLimiter(5, 60, "interview-start"),
     startInterview
 );
@@ -25,6 +33,7 @@ router.get("/test", (req, res) => {
 router.post(
     "/:sessionId/answer",
     protect,
+    validate(interviewAnswerSchema),
     rateLimiter(10, 60, "interview-answer"),
     submitAnswer
 );

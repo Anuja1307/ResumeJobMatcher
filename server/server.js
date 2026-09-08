@@ -1,5 +1,6 @@
 
 const express = require('express');
+const helmet = require("helmet");
 const cors = require('cors');
 const env = require('dotenv');
 
@@ -20,9 +21,10 @@ const app = express();
 
 connectDb();
 connectRedis();
+app.use(helmet());
 
 app.use(cors({
-    origin: 'http://localhost:5173',   
+    origin: process.env.CLIENT_URL,
     credentials: true
 }));
 
