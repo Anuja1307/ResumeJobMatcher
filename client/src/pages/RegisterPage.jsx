@@ -20,7 +20,7 @@ const RegisterPage = () => {
         setError('');
         try {
             await userRegister(name, email, password);
-            navigate('/login');
+            navigate('/verify-otp', { state: { email } });
         } 
         catch (err) {
             setError(err.response?.data?.message || 'Registration failed. Try again.');

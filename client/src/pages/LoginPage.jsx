@@ -25,7 +25,11 @@ const LoginPage = () => {
             navigate('/dashboard');
         } 
         catch (err) {
-            setError(err.response?.data?.message || 'Login failed. Try again.');
+            if (err.response?.status === 403) {
+                setError('Please verify your email before logging in.');
+            } else {
+                setError(err.response?.data?.message || 'Login failed. Try again.');
+            }
         } 
         finally {
             setLoading(false);
@@ -49,7 +53,18 @@ const LoginPage = () => {
                 {error && (
                     <div className="bg-rose-50 text-rose-700 border border-rose-100 px-4 py-3 rounded-xl mb-6 text-sm flex items-start gap-2.5 animate-fadeIn">
                         <AlertCircle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
-                        <span>{error}</span>
+                        <div className="flex-1">
+                            <span>{error}</span>
+                            {error.includes('verify your email') && (
+                                <Link
+                                    to="/verify-otp"
+                                    state={{ email }}
+                                    className="block mt-2 text-rose-700 font-semibold hover:text-rose-800 underline"
+                                >
+                                    Verify Email
+                                </Link>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -89,6 +104,14 @@ const LoginPage = () => {
                                 required
                                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                             />
+                        </div>
+                        <div className="text-right mt-2">
+                            <Link 
+                                to="/forgot-password" 
+                                className="text-xs text-indigo-600 hover:text-indigo-700 font-medium transition-all"
+                            >
+                                Forgot Password?
+                            </Link>
                         </div>
                     </div>
 

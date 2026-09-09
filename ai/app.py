@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from fastapi import UploadFile, File
+from whisper_service import model
 from embeddding_service import generate_embedding
 
 from bert_ner import extract_entities
@@ -341,3 +343,37 @@ def evaluate_interview_answer_endpoint(
             status_code=500,
             detail=f"Failed to evaluate interview answer: {str(e)}"
         )
+
+@app.post("/transcribe-audio")
+async def transcribe_audio(file: UploadFile = File(...)):
+    try:
+        audio_bytes = await file.read()
+
+        temp_path = "temp_interview_audio.webm"
+
+        with open(temp_path, "wb") as f:
+            f.write(audio_bytes)
+
+        segments, info = model.transcribe(
+            temp_path,
+            beam_size=5
+        )
+
+        transcript = " ".join(
+            segment.text.strip()
+            for segment in segments
+        )
+
+        return {
+            "success": True,
+            "transcript": transcript,
+            "language": info.language
+        }
+
+    except Exception as error:
+        print("Whisper transcription error:", error)
+
+        return {
+            "success": False,
+            "message": "Audio transcription failed"
+        }

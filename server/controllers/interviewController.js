@@ -1,6 +1,8 @@
 const InterviewSession = require("../models/InterviewSessons");
 const Job = require("../models/jobs");
 const User = require("../models/user");
+const axios = require("axios");
+const FormData = require("form-data");
 
 
 const {
@@ -176,12 +178,12 @@ const submitAnswer = async (req, res) => {
 
         // 6. Save answer + evaluation
         currentQuestion.answer = answer;
-        currentQuestion.score = evaluation.score;
-        currentQuestion.strengths = evaluation.strengths || [];
-        currentQuestion.improvements =
-            evaluation.improvements || [];
-        currentQuestion.idealAnswerPoints =
-            evaluation.idealAnswerPoints || [];
+       currentQuestion.score = evaluation.finalScore;
+currentQuestion.strengths = evaluation.strengths || [];
+currentQuestion.improvements =
+    evaluation.improvements || [];
+currentQuestion.idealAnswerPoints =
+    evaluation.idealAnswerPoints || [];
 
         // 7. Generate next question if max questions limit not reached (max 5)
         const MAX_QUESTIONS = 5;
@@ -208,16 +210,20 @@ const submitAnswer = async (req, res) => {
 
         // 9. Return evaluation + next question
         res.status(200).json({
-            success: true,
-            evaluation: {
-                score: evaluation.score,
-                strengths: evaluation.strengths || [],
-                improvements: evaluation.improvements || [],
-                idealAnswerPoints: evaluation.idealAnswerPoints || []
-            },
-            nextQuestion
-        });
+    success: true,
+    evaluation: {
+        contentScore: evaluation.contentScore,
+        communicationScore: evaluation.communicationScore,
+        finalScore: evaluation.finalScore,
 
+        strengths: evaluation.strengths || [],
+        improvements: evaluation.improvements || [],
+        idealAnswerPoints: evaluation.idealAnswerPoints || [],
+
+        communication: evaluation.communication || {}
+    },
+    nextQuestion
+});
     } catch (error) {
         console.error(
             "Submit interview answer error:",
@@ -360,9 +366,66 @@ if (interviewChunks.length > 0) {
 };
 
 
+const transcribeInterviewAudio = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No audio file provided"
+            });
+        }
+
+        const formData = new FormData();
+
+        formData.append(
+            "file",
+            req.file.buffer,
+            {
+                filename: "interview-answer.webm",
+                contentType: req.file.mimetype
+            }
+        );
+
+        const response = await axios.post(
+            `${process.env.AI_SERVICE_URL}/transcribe-audio`,
+            formData,
+            {
+                headers: {
+                    ...formData.getHeaders()
+                },
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity
+            }
+        );
+
+        return res.status(200).json({
+            success: true,
+            transcript: response.data.transcript,
+            language: response.data.language,
+
+            // Voice analysis metrics
+            wordCount: response.data.wordCount,
+            duration: response.data.duration,
+            speakingRate: response.data.speakingRate
+        });
+
+    } catch (error) {
+        console.error(
+            "Audio transcription error:",
+            error.response?.data || error.message
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to transcribe audio"
+        });
+    }
+};
+
 module.exports = {
     startInterview,
     submitAnswer,
     getInterviewSession,
-    completeInterview
+    completeInterview,
+    transcribeInterviewAudio
 };

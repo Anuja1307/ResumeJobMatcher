@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 const protect = (req, res, next) => {
+     console.log("AUTH MIDDLEWARE HIT");
 
     const auth = req.headers.authorization;
 
@@ -26,6 +27,7 @@ const protect = (req, res, next) => {
 }
 
         req.user = decoded;
+console.log("AUTH SUCCESS:", decoded.userId);
 
         next();
 

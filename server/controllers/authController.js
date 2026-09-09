@@ -1,6 +1,7 @@
 const bcrypt=require('bcrypt');
 const User=require('../models/user');
 const jwt=require('jsonwebtoken');
+const { sendOTPEmail } = require("../services/emailService");
 const {
     generateOTP,
     storeOTP,verifyOTP,canResendOTP,checkOTPRequestLimit,
@@ -34,8 +35,7 @@ exports.postRegister=async(req,res)=>{
 
         const otp = generateOTP();
         await storeOTP(user.email, otp);
-        console.log("OTP:", otp);
-
+await sendOTPEmail(user.email, otp);
         await user.save();
         return res.status(201).json({success:true,message:"User registered successfully"});
     }
@@ -47,6 +47,7 @@ exports.postRegister=async(req,res)=>{
 
 exports.postLogin=async (req,res)=>{
     try {
+
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
         const email=body.email;
         const password=body.password;
@@ -60,7 +61,7 @@ exports.postLogin=async (req,res)=>{
         if(!userExists){
             return res.status(400).json({success:false,message:"User does not exist"});
         }
-        if (!user.isVerified) {
+        if (!userExists.isVerified) {
     return res.status(403).json({
         success: false,
         message: "Please verify your email before logging in"
@@ -92,6 +93,7 @@ exports.postLogin=async (req,res)=>{
 
 exports.getProfile=async (req,res)=>{
     try {
+          console.log("GET PROFILE CONTROLLER HIT");
         const user=req.user;
         const userFromDb=await User.findById(user?.userId || user?.id);
         if(!userFromDb){
@@ -224,7 +226,7 @@ if (!allowed) {
         await storeOTP(normalizedEmail, otp);
 
         // Temporary development logging
-        console.log("OTP:", otp);
+        await sendOTPEmail(normalizedEmail, otp);
 
         return res.status(200).json({
             success: true,

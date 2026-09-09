@@ -4,12 +4,14 @@ const router = express.Router();
 const rateLimiter = require("../middlewares/rateLimiter");
 
 const {
-    startInterview,submitAnswer, getInterviewSession, completeInterview
+    startInterview,submitAnswer, getInterviewSession, completeInterview, transcribeInterviewAudio
 } = require("../controllers/interviewController");
 
 const protect = require("../middlewares/authMiddleware");
 
 const validate = require("../middlewares/validator");
+
+const audioUpload = require("../middlewares/audioUpload");
 
 const {
     interviewStartSchema,
@@ -36,6 +38,13 @@ router.post(
     validate(interviewAnswerSchema),
     rateLimiter(10, 60, "interview-answer"),
     submitAnswer
+);
+
+router.post(
+    "/:sessionId/audio",
+    protect,
+    audioUpload.single("audio"),
+    transcribeInterviewAudio
 );
 
 router.get(

@@ -2,6 +2,9 @@ import {BrowserRouter,Routes,Route} from'react-router-dom';
 
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import VerifyOTPPage from './pages/VerifyOTPPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashBoard from './pages/DashBoard';
 import ResumePage from './pages/ResumePage';
 import JobsPage from './pages/JobsPage';
@@ -19,6 +22,9 @@ const App=()=>{
         <Routes>
             <Route path="/login" element={<LoginPage/>}></Route>
             <Route path="/register" element={<RegisterPage/>}></Route>
+            <Route path="/verify-otp" element={<VerifyOTPPage/>}></Route>
+            <Route path="/forgot-password" element={<ForgotPasswordPage/>}></Route>
+            <Route path="/reset-password" element={<ResetPasswordPage/>}></Route>
 
             <Route path="/dashboard" element={
                 <ProtectedRoute>

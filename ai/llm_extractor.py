@@ -690,6 +690,7 @@ def evaluate_interview_answer(
         if isinstance(resume, dict)
         else {}
     )
+
     if not isinstance(resume_data, dict):
         resume_data = resume if isinstance(resume, dict) else {}
 
@@ -710,6 +711,7 @@ You are an expert technical interviewer evaluating a candidate's
 answer to an interview question.
 
 You MUST evaluate the candidate's actual answer.
+
 Do NOT generate placeholder text.
 
 QUESTION:
@@ -724,53 +726,180 @@ CANDIDATE RESUME:
 JOB:
 {json.dumps(job_context, indent=2)}
 
-Evaluate the candidate based on:
+
+========================
+PART 1: CONTENT EVALUATION
+========================
+
+Evaluate the candidate's answer based on:
 
 1. Technical correctness
 2. Relevance to the question
-3. Clarity
-4. Depth of understanding
-5. Practical understanding
-6. Alignment with the candidate's resume and the job
+3. Depth of understanding
+4. Practical understanding
+5. Alignment with the candidate's resume and the job
 
-SCORING:
-- 0-2 = Very poor
-- 3-4 = Poor
-- 5-6 = Average
-- 7-8 = Good
-- 9 = Very good
-- 10 = Excellent
+Give a CONTENT SCORE from 0 to 10.
 
-IMPORTANT RULES:
+Scoring:
+
+0-2 = Very poor
+3-4 = Poor
+5-6 = Average
+7-8 = Good
+9 = Very good
+10 = Excellent
+
+
+========================
+PART 2: COMMUNICATION EVALUATION
+========================
+
+Evaluate the candidate's communication based ONLY on the provided answer.
+
+Analyze:
+
+1. Clarity
+   - Is the explanation easy to understand?
+   - Are ideas expressed clearly?
+
+2. Confidence
+   - Does the candidate communicate ideas directly?
+   - Does the answer contain excessive uncertainty or hesitation?
+   - Look for phrases such as:
+     "I think"
+     "maybe"
+     "probably"
+     "I'm not sure"
+     "I guess"
+   - Do NOT claim to know the candidate's actual psychological confidence.
+   - Score perceived confidence based only on the language used.
+
+3. Fluency
+   - Does the answer flow naturally?
+   - Are there excessive repetitions or broken thoughts?
+
+4. Filler words
+   - Identify filler words actually present in the answer.
+   - Examples include:
+     "um", "uh", "like", "you know", "actually", "basically",
+     "so", "okay"
+   - Do NOT count normal meaningful usage as a filler word.
+   - Do NOT invent filler words that are not present.
+
+Give each communication category a score from 0 to 10.
+
+
+COMMUNICATION SCORE:
+
+Calculate:
+
+clarity * 0.30
++
+confidence * 0.30
++
+fluency * 0.20
++
+fillerWordScore * 0.20
+
+Then convert the result to a score out of 10.
+
+
+========================
+FINAL SCORE
+========================
+
+Calculate:
+
+contentScore * 0.70
++
+communicationScore * 0.30
+
+The final score must be out of 10.
+
+Do NOT simply average the two scores.
+
+
+========================
+FEEDBACK RULES
+========================
+
+IMPORTANT:
 
 - Evaluate ONLY the answer provided.
 - Do not invent things the candidate said.
 - Do not assume knowledge that was not demonstrated.
 - Strengths must describe things the candidate actually did well.
-- Improvements must describe specific weaknesses or missing details
-  in the candidate's actual answer.
-- idealAnswerPoints must contain important points that would make the
-  answer stronger.
-- Generate ONE realistic follow-up question.
+- Improvements must describe specific weaknesses in the candidate's answer.
+- Communication improvements must be based on observable language patterns.
+- Filler words must actually appear in the candidate's answer.
+- Do not claim that the candidate is psychologically confident or insecure.
+- Keep feedback specific to the question.
 - Do not use placeholder words such as:
-  "strength1", "strength2", "improvement1", "improvement2".
-- Each strength and improvement must be a complete, meaningful sentence.
-- Keep the feedback specific to the question.
+  "strength1", "strength2",
+  "improvement1", "improvement2".
+- Each strength and improvement must be a complete meaningful sentence.
+- idealAnswerPoints must contain important points that would make the answer stronger.
+- Generate ONE realistic adaptive follow-up question.
+
 
 Return ONLY valid JSON matching this schema:
+
 {{
-  "score": 7,
-  "strengths": ["complete sentence..."],
-  "improvements": ["complete sentence..."],
-  "idealAnswerPoints": ["complete sentence..."],
-  "nextQuestion": "concise adaptive follow-up question"
+    "contentScore": 8,
+
+    "strengths": [
+        "Complete meaningful sentence."
+    ],
+
+    "improvements": [
+        "Complete meaningful sentence."
+    ],
+
+    "idealAnswerPoints": [
+        "Complete meaningful sentence."
+    ],
+
+    "communication": {{
+        "clarity": 8,
+        "confidence": 7,
+        "fluency": 8,
+        "fillerWordScore": 9,
+
+        "fillerWords": [
+            {{
+                "word": "um",
+                "count": 2
+            }}
+        ],
+
+        "confidenceSignals": [
+            "The candidate uses direct statements when explaining the main concept."
+        ],
+
+        "communicationStrengths": [
+            "The explanation follows a logical sequence."
+        ],
+
+        "communicationImprovements": [
+            "Reduce hesitation phrases when explaining the concept."
+        ]
+    }},
+
+    "communicationScore": 8,
+
+    "finalScore": 8,
+
+    "nextQuestion": "Concise adaptive follow-up question."
 }}
 """
+
     try:
+
         response = requests.post(
             "http://localhost:11434/api/generate",
             json={
-                "model": "qwen2.5:3b",
+                "model": "qwen2.5-coder:7b",
                 "prompt": prompt,
                 "stream": False,
                 "format": "json",
@@ -786,14 +915,33 @@ Return ONLY valid JSON matching this schema:
         result_text = response.json().get("response", "").strip()
 
         try:
+            print("\n========== QWEN EVALUATION ==========")
+            print(result_text)
+            print("=====================================\n")
             return json.loads(result_text)
+
         except json.JSONDecodeError:
+
             import re
-            match = re.search(r'\{.*\}', result_text, re.DOTALL)
+
+            match = re.search(
+                r'\{.*\}',
+                result_text,
+                re.DOTALL
+            )
+
             if match:
                 return json.loads(match.group(0))
+
             raise
 
     except Exception as e:
-        print("Error during evaluate_interview_answer Ollama request:", e)
-        raise RuntimeError(f"Ollama interview answer evaluation failed: {e}")
+
+        print(
+            "Error during evaluate_interview_answer Ollama request:",
+            e
+        )
+
+        raise RuntimeError(
+            f"Ollama interview answer evaluation failed: {e}"
+        )

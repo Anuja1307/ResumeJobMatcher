@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect ,useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
     startInterview, 
     submitAnswer, 
     getInterviewSession, 
-    completeInterview 
+    completeInterview ,
+    transcribeInterviewAudio
 } from '../services/interviewService';
 import { 
     Briefcase, 
@@ -39,7 +40,13 @@ const InterviewPage = () => {
     const [interviewCompleted, setInterviewCompleted] = useState(false);
     const [finalResult, setFinalResult] = useState(null);
     const [showHistory, setShowHistory] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
 
+    const [audioBlob, setAudioBlob] = useState(null);
+    const [voiceMetrics, setVoiceMetrics] = useState(null);
+
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
     useEffect(() => {
         if (sessionId) {
             loadSession();
@@ -83,6 +90,97 @@ const InterviewPage = () => {
         }
     };
 
+    const startRecording = async () => {
+    try {
+        setError('');
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true
+        });
+
+        audioChunksRef.current = [];
+
+        const mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunksRef.current.push(event.data);
+            }
+        };
+
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(audioChunksRef.current, {
+                type: 'audio/webm'
+            });
+
+            setAudioBlob(blob);
+
+            stream.getTracks().forEach((track) => {
+                track.stop();
+            });
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+
+    } catch (error) {
+        console.error('Microphone error:', error);
+
+        setError(
+            'Unable to access your microphone. Please allow microphone permission and try again.'
+        );
+    }
+};
+
+const stopRecording = () => {
+    if (
+        mediaRecorderRef.current &&
+        mediaRecorderRef.current.state !== 'inactive'
+    ) {
+        mediaRecorderRef.current.stop();
+        setIsRecording(false);
+    }
+};
+
+const handleTranscribeAudio = async () => {
+    if (!audioBlob) {
+        setError('Please record an answer first.');
+        return;
+    }
+
+    try {
+        setSubmitting(true);
+        setError('');
+
+        const response = await transcribeInterviewAudio(
+            sessionId,
+            audioBlob
+        );
+
+        if (response.data?.success) {
+            setAnswer(response.data.transcript);
+             setAudioBlob(null);
+        } else {
+            setError('Unable to transcribe your answer.');
+        }
+
+    } catch (err) {
+    console.error("FULL TRANSCRIPTION ERROR:", err);
+    console.error("STATUS:", err.response?.status);
+    console.error("DATA:", err.response?.data);
+
+    setError(
+        err.response?.data?.message ||
+        "Unable to transcribe your audio."
+    );
+
+    } finally {
+        setSubmitting(false);
+    }
+};
+
     const handleSubmitAnswer = async () => {
         if (!answer.trim()) {
             setError('Please provide an answer before submitting.');
@@ -108,11 +206,15 @@ const InterviewPage = () => {
                         q.question === currentQuestion.question && !q.answer
                             ? {
                                 ...q,
-                                answer: answer.trim(),
-                                score: evalData.score,
-                                strengths: evalData.strengths || [],
-                                improvements: evalData.improvements || [],
-                                idealAnswerPoints: evalData.idealAnswerPoints || []
+                               answer: answer.trim(),
+score: evalData.finalScore,
+strengths: evalData.strengths || [],
+improvements: evalData.improvements || [],
+idealAnswerPoints: evalData.idealAnswerPoints || [],
+communication: evalData.communication || {},
+contentScore: evalData.contentScore,
+communicationScore: evalData.communicationScore,
+finalScore: evalData.finalScore
                             }
                             : q
                     );
@@ -431,22 +533,78 @@ const InterviewPage = () => {
                     </div>
 
                     <div className="space-y-2 pt-4 border-t border-slate-100">
-                        <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider">
-                            Your Answer
-                        </label>
-                        <textarea
-                            value={answer}
-                            onChange={(e) => setAnswer(e.target.value)}
-                            placeholder="Type your answer here..."
-                            rows={6}
-                            className="w-full bg-white border border-slate-200 rounded-xl p-4 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none font-sans"
-                            disabled={submitting}
-                        />
-                        <div className="flex justify-between items-center text-xs text-slate-400">
-                            <span>Be detailed and provide real examples from your experience</span>
-                            <span className="font-medium">{answer.length} characters</span>
-                        </div>
-                    </div>
+
+    <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider">
+        Your Answer
+    </label>
+
+    {/* Voice Recording */}
+    <div className="flex items-center gap-3">
+
+        {!isRecording ? (
+            <button
+                type="button"
+                onClick={startRecording}
+                disabled={submitting}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center gap-2 disabled:opacity-50"
+            >
+                🎙️ Start Recording
+            </button>
+        ) : (
+            <button
+                type="button"
+                onClick={stopRecording}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition flex items-center gap-2"
+            >
+                ⏹ Stop Recording
+            </button>
+        )}
+
+        {isRecording && (
+            <span className="text-xs font-semibold text-rose-600">
+                ● Recording...
+            </span>
+        )}
+
+        {audioBlob && !isRecording && (
+            <span className="text-xs font-semibold text-emerald-600">
+                ✓ Audio recorded
+            </span>
+        )}
+
+    </div>
+    {audioBlob && !isRecording && (
+    <button
+        type="button"
+        onClick={handleTranscribeAudio}
+        disabled={submitting}
+        className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition disabled:opacity-50"
+    >
+        {submitting ? 'Transcribing...' : 'Transcribe Answer'}
+    </button>
+)}
+
+    {/* Existing Answer Box */}
+    <textarea
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value)}
+        placeholder="Type your answer here..."
+        rows={6}
+        className="w-full bg-white border border-slate-200 rounded-xl p-4 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none font-sans"
+        disabled={submitting}
+    />
+
+    <div className="flex justify-between items-center text-xs text-slate-400">
+        <span>
+            Be detailed and provide real examples from your experience
+        </span>
+
+        <span className="font-medium">
+            {answer.length} characters
+        </span>
+    </div>
+
+</div>
 
                     <button
                         onClick={handleSubmitAnswer}
@@ -469,74 +627,332 @@ const InterviewPage = () => {
             )}
 
             {/* Evaluation Card */}
-            {evaluation && showContinue && (
-                <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-6 animate-fadeIn">
-                    <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-                        <div className="h-8 w-8 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
-                            <CheckCircle2 className="h-4 w-4" />
-                        </div>
-                        <h3 className="font-extrabold text-slate-900 text-base">Your Evaluation</h3>
-                    </div>
+{evaluation && showContinue && (
+    <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-6 animate-fadeIn">
 
-                    <div className="bg-gradient-to-r from-indigo-50/80 via-purple-50/50 to-slate-50 border border-indigo-100/80 rounded-xl p-5 text-center">
-                        <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Your Score</p>
-                        <p className={`text-4xl font-extrabold ${getScoreColor(evaluation.score)}`}>
-                            {evaluation.score} <span className="text-xl text-slate-400 font-semibold">/ 10</span>
+        {/* Header */}
+        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+            <div className="h-8 w-8 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+                <CheckCircle2 className="h-4 w-4" />
+            </div>
+
+            <h3 className="font-extrabold text-slate-900 text-base">
+                Your Evaluation
+            </h3>
+        </div>
+
+
+        {/* Final Score */}
+        <div className="bg-gradient-to-r from-indigo-50/80 via-purple-50/50 to-slate-50 border border-indigo-100/80 rounded-xl p-5 text-center">
+
+            <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                Final Score
+            </p>
+
+            <p className={`text-4xl font-extrabold ${getScoreColor(evaluation.finalScore)}`}>
+                {evaluation.finalScore ?? 0}
+                <span className="text-xl text-slate-400 font-semibold">
+                    {" "} / 10
+                </span>
+            </p>
+
+        </div>
+
+
+        {/* Score Breakdown */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+                <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                    Content Score
+                </p>
+
+                <p className={`text-2xl font-extrabold mt-1 ${getScoreColor(evaluation.contentScore)}`}>
+                    {evaluation.contentScore ?? 0}
+                    <span className="text-sm text-slate-400"> / 10</span>
+                </p>
+            </div>
+
+
+            <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 text-center">
+                <p className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider">
+                    Communication Score
+                </p>
+
+                <p className={`text-2xl font-extrabold mt-1 ${getScoreColor(evaluation.communicationScore)}`}>
+                    {evaluation.communicationScore ?? 0}
+                    <span className="text-sm text-slate-400"> / 10</span>
+                </p>
+            </div>
+
+        </div>
+
+
+        {/* Communication Analysis */}
+        {evaluation.communication && (
+            <div className="space-y-4">
+
+                <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">
+                    Communication Analysis
+                </h4>
+
+
+                {/* Communication Metrics */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">
+                            Clarity
+                        </p>
+
+                        <p className={`text-lg font-extrabold mt-1 ${getScoreColor(evaluation.communication.clarity)}`}>
+                            {evaluation.communication.clarity ?? 0}/10
                         </p>
                     </div>
 
-                    {evaluation.strengths && evaluation.strengths.length > 0 && (
-                        <div className="space-y-2.5">
-                            <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                                <Check className="h-4 w-4 text-emerald-600" />
-                                Strengths
-                            </h4>
-                            <div className="space-y-2">
-                                {evaluation.strengths.map((strength, idx) => (
-                                    <div key={idx} className="flex items-start gap-2.5 text-xs text-slate-700 bg-emerald-50/60 border border-emerald-100/80 p-3 rounded-xl">
-                                        <span className="text-emerald-600 font-bold shrink-0">✓</span>
-                                        <span className="leading-relaxed">{strength}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
 
-                    {evaluation.improvements && evaluation.improvements.length > 0 && (
-                        <div className="space-y-2.5">
-                            <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                                <XCircle className="h-4 w-4 text-amber-600" />
-                                Areas to Improve
-                            </h4>
-                            <div className="space-y-2">
-                                {evaluation.improvements.map((improvement, idx) => (
-                                    <div key={idx} className="flex items-start gap-2.5 text-xs text-slate-700 bg-amber-50/60 border border-amber-100/80 p-3 rounded-xl">
-                                        <span className="text-amber-600 font-bold shrink-0">•</span>
-                                        <span className="leading-relaxed">{improvement}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">
+                            Confidence
+                        </p>
 
-                    {evaluation.idealAnswerPoints && evaluation.idealAnswerPoints.length > 0 && (
-                        <div className="space-y-2.5">
-                            <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                                <Sparkles className="h-4 w-4 text-indigo-600" />
-                                Ideal Answer Points
-                            </h4>
-                            <div className="space-y-2">
-                                {evaluation.idealAnswerPoints.map((point, idx) => (
-                                    <div key={idx} className="flex items-start gap-2.5 text-xs text-slate-700 bg-indigo-50/50 border border-indigo-100/70 p-3 rounded-xl">
-                                        <span className="text-indigo-600 font-bold shrink-0">•</span>
-                                        <span className="leading-relaxed">{point}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                        <p className={`text-lg font-extrabold mt-1 ${getScoreColor(evaluation.communication.confidence)}`}>
+                            {evaluation.communication.confidence ?? 0}/10
+                        </p>
+                    </div>
+
+
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">
+                            Fluency
+                        </p>
+
+                        <p className={`text-lg font-extrabold mt-1 ${getScoreColor(evaluation.communication.fluency)}`}>
+                            {evaluation.communication.fluency ?? 0}/10
+                        </p>
+                    </div>
+
+
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">
+                            Filler Control
+                        </p>
+
+                        <p className={`text-lg font-extrabold mt-1 ${getScoreColor(evaluation.communication.fillerWordScore)}`}>
+                            {evaluation.communication.fillerWordScore ?? 0}/10
+                        </p>
+                    </div>
+
                 </div>
-            )}
+
+
+                {/* Filler Words */}
+                {evaluation.communication.fillerWords &&
+                 evaluation.communication.fillerWords.length > 0 && (
+
+                    <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-4">
+
+                        <p className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider mb-2">
+                            Filler Words Detected
+                        </p>
+
+                        <div className="flex flex-wrap gap-2">
+
+                            {evaluation.communication.fillerWords.map((item, idx) => (
+                                <span
+                                    key={idx}
+                                    className="px-2.5 py-1 bg-white border border-amber-200 rounded-lg text-xs font-semibold text-slate-700"
+                                >
+                                    {item.word} × {item.count}
+                                </span>
+                            ))}
+
+                        </div>
+
+                    </div>
+                )}
+
+
+                {/* Confidence Signals */}
+                {evaluation.communication.confidenceSignals &&
+                 evaluation.communication.confidenceSignals.length > 0 && (
+
+                    <div className="space-y-2">
+
+                        <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                            Confidence Signals
+                        </p>
+
+                        {evaluation.communication.confidenceSignals.map((signal, idx) => (
+                            <div
+                                key={idx}
+                                className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700"
+                            >
+                                {signal}
+                            </div>
+                        ))}
+
+                    </div>
+                )}
+
+
+                {/* Communication Strengths */}
+                {evaluation.communication.communicationStrengths &&
+                 evaluation.communication.communicationStrengths.length > 0 && (
+
+                    <div className="space-y-2">
+
+                        <p className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">
+                            Communication Strengths
+                        </p>
+
+                        {evaluation.communication.communicationStrengths.map((strength, idx) => (
+                            <div
+                                key={idx}
+                                className="flex items-start gap-2.5 text-xs text-slate-700 bg-emerald-50/60 border border-emerald-100/80 p-3 rounded-xl"
+                            >
+                                <span className="text-emerald-600 font-bold">
+                                    ✓
+                                </span>
+
+                                <span className="leading-relaxed">
+                                    {strength}
+                                </span>
+                            </div>
+                        ))}
+
+                    </div>
+                )}
+
+
+                {/* Communication Improvements */}
+                {evaluation.communication.communicationImprovements &&
+                 evaluation.communication.communicationImprovements.length > 0 && (
+
+                    <div className="space-y-2">
+
+                        <p className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">
+                            Communication Improvements
+                        </p>
+
+                        {evaluation.communication.communicationImprovements.map((improvement, idx) => (
+                            <div
+                                key={idx}
+                                className="flex items-start gap-2.5 text-xs text-slate-700 bg-amber-50/60 border border-amber-100/80 p-3 rounded-xl"
+                            >
+                                <span className="text-amber-600 font-bold">
+                                    •
+                                </span>
+
+                                <span className="leading-relaxed">
+                                    {improvement}
+                                </span>
+                            </div>
+                        ))}
+
+                    </div>
+                )}
+
+            </div>
+        )}
+
+
+        {/* Content Strengths */}
+        {evaluation.strengths && evaluation.strengths.length > 0 && (
+            <div className="space-y-2.5">
+
+                <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Check className="h-4 w-4 text-emerald-600" />
+                    Strengths
+                </h4>
+
+                <div className="space-y-2">
+
+                    {evaluation.strengths.map((strength, idx) => (
+                        <div
+                            key={idx}
+                            className="flex items-start gap-2.5 text-xs text-slate-700 bg-emerald-50/60 border border-emerald-100/80 p-3 rounded-xl"
+                        >
+                            <span className="text-emerald-600 font-bold shrink-0">
+                                ✓
+                            </span>
+
+                            <span className="leading-relaxed">
+                                {strength}
+                            </span>
+                        </div>
+                    ))}
+
+                </div>
+            </div>
+        )}
+
+
+        {/* Content Improvements */}
+        {evaluation.improvements && evaluation.improvements.length > 0 && (
+            <div className="space-y-2.5">
+
+                <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <XCircle className="h-4 w-4 text-amber-600" />
+                    Areas to Improve
+                </h4>
+
+                <div className="space-y-2">
+
+                    {evaluation.improvements.map((improvement, idx) => (
+                        <div
+                            key={idx}
+                            className="flex items-start gap-2.5 text-xs text-slate-700 bg-amber-50/60 border border-amber-100/80 p-3 rounded-xl"
+                        >
+                            <span className="text-amber-600 font-bold shrink-0">
+                                •
+                            </span>
+
+                            <span className="leading-relaxed">
+                                {improvement}
+                            </span>
+                        </div>
+                    ))}
+
+                </div>
+            </div>
+        )}
+
+
+        {/* Ideal Answer Points */}
+        {evaluation.idealAnswerPoints &&
+         evaluation.idealAnswerPoints.length > 0 && (
+
+            <div className="space-y-2.5">
+
+                <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-indigo-600" />
+                    Ideal Answer Points
+                </h4>
+
+                <div className="space-y-2">
+
+                    {evaluation.idealAnswerPoints.map((point, idx) => (
+                        <div
+                            key={idx}
+                            className="flex items-start gap-2.5 text-xs text-slate-700 bg-indigo-50/50 border border-indigo-100/70 p-3 rounded-xl"
+                        >
+                            <span className="text-indigo-600 font-bold shrink-0">
+                                •
+                            </span>
+
+                            <span className="leading-relaxed">
+                                {point}
+                            </span>
+                        </div>
+                    ))}
+
+                </div>
+            </div>
+        )}
+
+    </div>
+)}
 
             {/* Next Question Card */}
             {nextQuestion && showContinue && (

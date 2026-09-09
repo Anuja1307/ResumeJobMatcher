@@ -15,3 +15,14 @@ export const getInterviewSession = async (sessionId) => {
 export const completeInterview = async (sessionId) => {
     return await api.post(`/interview/${sessionId}/complete`);
 };
+
+export const transcribeInterviewAudio = async (sessionId, audioBlob) => {
+    const formData = new FormData();
+
+    formData.append("audio", audioBlob, "interview-answer.webm");
+
+    return await api.post(
+        `/interview/${sessionId}/audio`,
+        formData
+    );
+};
