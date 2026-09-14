@@ -1,6 +1,12 @@
 const { Resend } = require("resend");
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const getResendClient = () => {
+    if (!process.env.RESEND_API_KEY) {
+        throw new Error("RESEND_API_KEY is not configured");
+    }
+
+    return new Resend(process.env.RESEND_API_KEY);
+};
 
 async function sendOTPEmail(email, otp) {
     // Always log OTP for testing purposes
@@ -11,6 +17,7 @@ async function sendOTPEmail(email, otp) {
     console.log("========================================");
 
     try {
+        const resend = getResendClient();
         const { data, error } = await resend.emails.send({
             from: process.env.EMAIL_FROM,
             to: email,
