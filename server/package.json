@@ -12,6 +12,7 @@
     "reindex:jobs": "node scripts/reindexJobs.js"
   },
   "dependencies": {
+    "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.6",

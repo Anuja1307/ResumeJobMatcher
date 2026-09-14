@@ -2,8 +2,7 @@ const axios = require("axios");
 
 
 // FastAPI AI service
-const AI_SERVICE_URL = "http://127.0.0.1:8000";
-
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 
 // ============================================================
 // Send resume text to Python AI service

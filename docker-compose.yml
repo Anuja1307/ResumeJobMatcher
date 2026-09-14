@@ -1,0 +1,35 @@
+services:
+
+  frontend:
+    build: ./client
+    container_name: resume-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./server
+    container_name: resume-backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./server/.env
+    environment:
+      REDIS_URL: redis://redis:6379
+      AI_SERVICE_URL: http://ai:8000
+    depends_on:
+      - redis
+      - ai
+
+  redis:
+    image: redis:7
+    container_name: resume-redis
+    ports:
+      - "6379:6379"
+
+  ai:
+    build: ./ai
+    container_name: resume-ai
+    ports:
+      - "8000:8000"

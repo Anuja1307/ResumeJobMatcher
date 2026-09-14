@@ -1,4 +1,4 @@
-from embeddding_service import generate_embedding
+from ai.embedding_service import generate_embedding
 
 
 text = """

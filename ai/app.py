@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from fastapi import UploadFile, File
 from whisper_service import model
-from embeddding_service import generate_embedding
+from embedding_service import generate_embedding
 
 from bert_ner import extract_entities
 

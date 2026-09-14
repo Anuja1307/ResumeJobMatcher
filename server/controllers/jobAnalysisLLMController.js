@@ -7,7 +7,7 @@ const {
 
 const {
     calculateATSScore
-} = require("../services/atsScorer.JS");
+} = require("../services/atsScorer.js");
 
 const {
     analyzeResumeForJob

@@ -96,7 +96,7 @@ Resume:
 """
 
     response = requests.post(
-        "http://localhost:11434/api/generate",
+        "http://host.docker.internal:11434/api/generate",
         json={
             "model": "qwen2.5:3b",
             "prompt": prompt,
@@ -176,7 +176,7 @@ Job Description:
 """
 
     response = requests.post(
-        "http://localhost:11434/api/generate",
+        "http://host.docker.internal:11434/api/generate",
         json={
             "model": "qwen2.5:3b",
             "prompt": prompt,
@@ -235,7 +235,7 @@ Job Description:
 """
 
     response = requests.post(
-        "http://localhost:11434/api/generate",
+        "http://host.docker.internal:11434/api/generate",
         json={
             "model": "qwen2.5:3b",
             "prompt": prompt,
@@ -351,7 +351,7 @@ STRUCTURED RESUME:
 """
 
     response = requests.post(
-        "http://localhost:11434/api/generate",
+        "http://host.docker.internal:11434/api/generate",
         json={
             "model": "qwen2.5:3b",
             "prompt": prompt,
@@ -491,7 +491,7 @@ ATS ANALYSIS:
 """
 
     response = requests.post(
-        "http://localhost:11434/api/generate",
+        "http://host.docker.internal:11434/api/generate",
         json={
             "model": "qwen2.5:3b",
             "prompt": prompt,
@@ -648,7 +648,7 @@ Return ONLY valid JSON matching this schema:
 
     try:
         response = requests.post(
-            "http://localhost:11434/api/generate",
+            "http://host.docker.internal:11434/api/generate",
             json={
                 "model": "qwen2.5:3b",
                 "prompt": prompt,
@@ -897,7 +897,7 @@ Return ONLY valid JSON matching this schema:
     try:
 
         response = requests.post(
-            "http://localhost:11434/api/generate",
+            "http://host.docker.internal:11434/api/generate",
             json={
                 "model": "qwen2.5-coder:7b",
                 "prompt": prompt,
