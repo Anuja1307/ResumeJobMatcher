@@ -66,34 +66,19 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build frontend Docker image
-        run: |
-          docker build \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/resume-frontend:latest \
-            ./client
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/resume-frontend:latest ./client
 
       - name: Push frontend Docker image
-        run: |
-          docker push \
-            ${{ secrets.DOCKERHUB_USERNAME }}/resume-frontend:latest
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/resume-frontend:latest
 
       - name: Build backend Docker image
-        run: |
-          docker build \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/resume-backend:latest \
-            ./server
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/resume-backend:latest ./server
 
       - name: Push backend Docker image
-        run: |
-          docker push \
-            ${{ secrets.DOCKERHUB_USERNAME }}/resume-backend:latest
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/resume-backend:latest
 
       - name: Build AI Docker image
-        run: |
-          docker build \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/resume-ai:latest \
-            ./ai
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/resume-ai:latest ./ai
 
       - name: Push AI Docker image
-        run: |
-          docker push \
-            ${{ secrets.DOCKERHUB_USERNAME }}/resume-ai:latest
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/resume-ai:latest
