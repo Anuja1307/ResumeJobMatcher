@@ -70,18 +70,18 @@ jobs:
         with:
           context: ./client
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/resume-frontend:latest
+          tags: anuja1307/resume-frontend:latest
 
       - name: Build and push backend
         uses: docker/build-push-action@v6
         with:
           context: ./server
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/resume-backend:latest
+          tags: anuja1307/resume-backend:latest
 
       - name: Build and push AI
         uses: docker/build-push-action@v6
         with:
           context: ./ai
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/resume-ai:latest
+          tags: anuja1307/resume-ai:latest
