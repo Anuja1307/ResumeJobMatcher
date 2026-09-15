@@ -1,0 +1,55 @@
+services:
+
+  frontend:
+    image: anuja1307/resume-frontend:latest
+    container_name: resume-frontend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  backend:
+    image: anuja1307/resume-backend:latest
+    container_name: resume-backend
+    expose:
+      - "3000"
+    restart: unless-stopped
+    env_file:
+      - ./server/.env.aws
+    environment:
+      REDIS_URL: redis://redis:6379
+      AI_SERVICE_URL: http://ai:8000
+    depends_on:
+      - redis
+      - ai
+    networks:
+      - app-network
+
+  ai:
+    image: anuja1307/resume-ai:latest
+    container_name: resume-ai
+    expose:
+      - "8000"
+    restart: unless-stopped
+    env_file:
+      - ./ai/.env.aws
+    environment:
+      AI_PROVIDER: openai
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7
+    container_name: resume-redis
+    expose:
+      - "6379"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
