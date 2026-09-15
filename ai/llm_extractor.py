@@ -1,523 +1,262 @@
-import requests
+import os
 import json
+import re
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+def get_openai_client():
+    from openai import OpenAI
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY environment variable is not set")
+    return OpenAI(api_key=api_key)
+
+
+def _parse_json(text):
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\n?", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\n?```$", "", text)
+        text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        match_arr = re.search(r"\[.*\]", text, re.DOTALL)
+        if match_arr:
+            return json.loads(match_arr.group(0))
+        raise ValueError(f"Could not parse valid JSON from LLM response: {text[:200]}")
+
+
+def _call_llm_json(prompt, system_message="You are an expert AI assistant. You MUST respond with valid JSON.", schema=None):
+    provider = os.getenv("AI_PROVIDER", "openai").lower()
+
+    if provider == "openai":
+        try:
+            client = get_openai_client()
+            model = os.getenv("OPENAI_LLM_MODEL", "gpt-4o-mini")
+
+            full_system = f"{system_message}\nReturn ONLY a JSON object strictly matching the requested format."
+
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": full_system},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3
+            )
+            content = response.choices[0].message.content
+            return _parse_json(content)
+        except Exception as e:
+            print(f"OpenAI LLM extraction error: {e}")
+            raise RuntimeError(f"LLM extraction failed via OpenAI: {e}")
+    else:
+        # Local Ollama fallback
+        ollama_url = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434").rstrip("/") + "/api/generate"
+        ollama_model = os.getenv("OLLAMA_LLM_MODEL", "qwen2.5:3b")
+
+        payload = {
+            "model": ollama_model,
+            "prompt": f"{system_message}\n\n{prompt}",
+            "stream": False,
+            "format": schema if schema else "json",
+            "options": {
+                "temperature": 0.3
+            }
+        }
+
+        res = requests.post(ollama_url, json=payload, timeout=120)
+        res.raise_for_status()
+        content = res.json().get("response", "").strip()
+        return _parse_json(content)
 
 
 def extract_resume_information(resume_text):
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "skills": {
-                "type": "array",
-                "items": {"type": "string"}
-            },
-            "roles": {
-                "type": "array",
-                "items": {"type": "string"}
-            },
-            "projects": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"},
-                        "technologies": {
-                            "type": "array",
-                            "items": {"type": "string"}
-                        },
-                        "description": {"type": "string"}
-                    },
-                    "required": [
-                        "name",
-                        "technologies",
-                        "description"
-                    ]
-                }
-            },
-            "experience": {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "company": {
-                "type": "string"
-            },
-            "role": {
-                "type": "string"
-            },
-            "startDate": {
-                "type": "string"
-            },
-            "endDate": {
-                "type": "string"
-            },
-            "description": {
-                "type": "string"
-            }
-        },
-        "required": [
-            "company",
-            "role",
-            "startDate",
-            "endDate",
-            "description"
-        ]
-    }
-},
-        },
-        "required": [
-            "skills",
-            "roles",
-            "projects",
-            "experience"
-        ]
-    }
+    system_msg = "You are a resume information extraction system. Extract structured information from raw resume text."
     prompt = f"""
-You are a resume information extraction system.
-
 Extract:
-- technical skills
-- job roles
-- projects
-- work experience
+- technical skills (array of strings)
+- job roles (array of strings)
+- projects (array of objects with name, technologies, description)
+- work experience (array of objects with company, role, startDate, endDate, description)
 
-For each work experience, extract:
-- company
-- role
-- start date
-- end date
-- description
+Do not invent information. If a date is missing, return an empty string.
 
-Do not invent information.
-If a date is not present, return an empty string.
+Required JSON Structure:
+{{
+  "skills": ["JavaScript", "Python"],
+  "roles": ["Software Developer"],
+  "projects": [
+    {{
+      "name": "Project Name",
+      "technologies": ["React", "Node.js"],
+      "description": "Project summary"
+    }}
+  ],
+  "experience": [
+    {{
+      "company": "Company Name",
+      "role": "Role Title",
+      "startDate": "2023",
+      "endDate": "2024",
+      "description": "Experience summary"
+    }}
+  ]
+}}
 
-Resume:
+Resume Text:
 {resume_text}
 """
-
-    response = requests.post(
-        "http://host.docker.internal:11434/api/generate",
-        json={
-            "model": "qwen2.5:3b",
-            "prompt": prompt,
-            "stream": False,
-            "format": schema
-        }
-    )
-
-    response.raise_for_status()
-
-    result = response.json()["response"]
-
-    return json.loads(result)
-
-if __name__ == "__main__":
-    resume = """
-Anuja Sharma
-
-I am a Computer Science student with experience building
-full-stack applications.
-
-Technical Skills:
-JavaScript, Python, Java, C++, React.js, Tailwind CSS,
-Node.js, Express.js, MongoDB, Redis, Docker.
-
-Projects:
-AI-Powered Resume and Job Matcher
-Built using React, Node.js, Express and MongoDB.
-
-Digital Library Management System
-Developed a web application using React and Node.js.
-
-Experience:
-Software Developer Intern at ABC Technologies.
-Worked on REST APIs and backend services using Node.js
-and MongoDB.
-"""
-
-    result = extract_resume_information(resume)
-
-    print(json.dumps(result, indent=2))
-
+    result = _call_llm_json(prompt, system_message=system_msg)
+    return {
+        "skills": result.get("skills", []),
+        "roles": result.get("roles", []),
+        "projects": result.get("projects", []),
+        "experience": result.get("experience", [])
+    }
 
 
 def extract_job_skills(job_description):
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "skills": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            }
-        },
-        "required": ["skills"]
-    }
-
+    system_msg = "You are a job description skill extraction system."
     prompt = f"""
-You are a job description skill extraction system.
-
-Extract the technical and professional skills explicitly
-required or mentioned in this job description.
-
-Include technologies, programming languages, frameworks,
-databases, tools, cloud platforms, APIs, authentication
-technologies, and relevant technical concepts.
-
+Extract technical and professional skills explicitly required or mentioned in this job description.
+Include technologies, programming languages, frameworks, databases, tools, cloud platforms, and relevant technical concepts.
 Do not invent skills.
 
-Return only skills that are actually present in the
-job description.
+Required JSON Structure:
+{{
+  "skills": ["Python", "React", "Docker"]
+}}
 
 Job Description:
 {job_description}
 """
+    result = _call_llm_json(prompt, system_message=system_msg)
+    return {"skills": result.get("skills", [])}
 
-    response = requests.post(
-        "http://host.docker.internal:11434/api/generate",
-        json={
-            "model": "qwen2.5:3b",
-            "prompt": prompt,
-            "stream": False,
-            "format": schema
-        }
-    )
-
-    response.raise_for_status()
-
-    result = response.json()["response"]
-
-    return json.loads(result)
 
 def extract_job_keywords(job_description):
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "keywords": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            }
-        },
-        "required": ["keywords"]
-    }
-
+    system_msg = "You are an ATS keyword extraction system."
     prompt = f"""
-You are an ATS keyword extraction system.
+Extract important keywords and technical phrases from this job description that an Applicant Tracking System (ATS) would look for in a resume.
+Include technical concepts, responsibilities, tools, methodologies, and technologies.
+Do NOT include generic words like 'candidate', 'company', 'work', 'team', 'role', 'experience'.
 
-Extract important keywords and technical phrases from this
-job description that an Applicant Tracking System would
-look for in a candidate's resume.
-
-Include:
-- technical concepts
-- responsibilities
-- tools
-- methodologies
-- domain-specific terms
-- important phrases
-- technologies
-
-Do NOT include generic words such as:
-"candidate", "company", "work", "team", "role", "experience".
-
-Do not invent information.
-
-Return only keywords or short phrases that are explicitly
-present in the job description.
+Required JSON Structure:
+{{
+  "keywords": ["REST API", "Microservices", "CI/CD"]
+}}
 
 Job Description:
 {job_description}
 """
+    result = _call_llm_json(prompt, system_message=system_msg)
+    return {"keywords": result.get("keywords", [])}
 
-    response = requests.post(
-        "http://host.docker.internal:11434/api/generate",
-        json={
-            "model": "qwen2.5:3b",
-            "prompt": prompt,
-            "stream": False,
-            "format": schema
-        }
-    )
-
-    response.raise_for_status()
-
-    result = response.json()["response"]
-
-    return json.loads(result)
 
 def extract_resume_analysis(resume):
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "overallAssessment": {
-                "type": "string"
-            },
-            "strengths": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "weaknesses": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "skillSuggestions": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "experienceSuggestions": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "projectSuggestions": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "atsSuggestions": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "actionPlan": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            }
-        },
-        "required": [
-            "overallAssessment",
-            "strengths",
-            "weaknesses",
-            "skillSuggestions",
-            "experienceSuggestions",
-            "projectSuggestions",
-            "atsSuggestions",
-            "actionPlan"
-        ]
-    }
-
+    system_msg = "You are an expert resume analysis assistant."
     prompt = f"""
-You are an expert resume analysis assistant.
-
 Analyze the following structured resume.
-
-Your job is to provide useful, specific and honest feedback.
-
-Analyze:
-
+Provide useful, specific, and honest feedback on:
 1. Overall resume quality
 2. Strengths
 3. Weaknesses
-4. Skills and skill presentation
+4. Skills presentation
 5. Experience descriptions
 6. Project descriptions
 7. ATS optimization opportunities
 8. A practical action plan for improving the resume
 
 IMPORTANT RULES:
+- Only use information present in the resume. Do not invent experience or skills.
+- Return full meaningful sentences for suggestions.
 
-- Only use information present in the resume.
-- Do not invent experience, skills, projects or achievements.
-- Do not assume the candidate has a skill that is not mentioned.
-- Do not recommend adding a skill merely because it is popular.
-- Suggestions should be practical and specific.
-- If a section is missing or weak, mention that.
-- For ATS suggestions, recommend naturally incorporating relevant
-  terminology rather than keyword stuffing.
-- Focus on improving the resume rather than judging the candidate.
+Required JSON Structure:
+{{
+  "overallAssessment": "string",
+  "strengths": ["string"],
+  "weaknesses": ["string"],
+  "skillSuggestions": ["string"],
+  "experienceSuggestions": ["string"],
+  "projectSuggestions": ["string"],
+  "atsSuggestions": ["string"],
+  "actionPlan": ["string"]
+}}
 
-Return only the requested JSON structure.
-
-STRUCTURED RESUME:
-
+Structured Resume:
 {json.dumps(resume, indent=2)}
 """
-
-    response = requests.post(
-        "http://host.docker.internal:11434/api/generate",
-        json={
-            "model": "qwen2.5:3b",
-            "prompt": prompt,
-            "stream": False,
-            "format": schema
-        }
-    )
-
-    response.raise_for_status()
-
-    result = response.json()["response"]
-
-    return json.loads(result)
-
-def analyze_resume_for_job(resume, job, ats):
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "overallAssessment": {
-                "type": "string"
-            },
-            "whyYouMatch": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "whyYouDontMatch": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "missingSkills": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "missingKeywords": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "resumeImprovements": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "projectImprovements": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "atsImprovements": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            },
-            "actionPlan": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                }
-            }
-        },
-        "required": [
-            "overallAssessment",
-            "whyYouMatch",
-            "whyYouDontMatch",
-            "missingSkills",
-            "missingKeywords",
-            "resumeImprovements",
-            "projectImprovements",
-            "atsImprovements",
-            "actionPlan"
-        ]
+    result = _call_llm_json(prompt, system_message=system_msg)
+    return {
+        "overallAssessment": result.get("overallAssessment", ""),
+        "strengths": result.get("strengths", []),
+        "weaknesses": result.get("weaknesses", []),
+        "skillSuggestions": result.get("skillSuggestions", []),
+        "experienceSuggestions": result.get("experienceSuggestions", []),
+        "projectSuggestions": result.get("projectSuggestions", []),
+        "atsSuggestions": result.get("atsSuggestions", []),
+        "actionPlan": result.get("actionPlan", [])
     }
 
+
+def analyze_resume_for_job(resume, job, ats):
+    system_msg = "You are an expert technical recruiter and resume optimization assistant."
     prompt = f"""
-You are an expert technical recruiter and resume optimization assistant.
+Analyze how well this candidate's resume matches the specific job description.
 
-Analyze how well this candidate's resume matches the specific job.
-
-You are given:
-
-1. The candidate's structured resume
-2. The job description
-3. An ATS analysis produced by our application
-
-Your goal is to provide personalized and honest recommendations.
-
-IMPORTANT RULES:
-
-- Use only information provided in the resume, job description and ATS data.
-- Do not invent candidate experience.
-- Do not claim the candidate has a skill that is not present.
-- Do not recommend lying or adding fake experience.
+RULES:
+- Use only provided resume, job description, and ATS data.
+- Do not invent candidate experience or recommend lying.
 - Clearly distinguish between existing strengths and missing requirements.
-- Suggestions should be specific to THIS job.
-- Do not simply repeat the ATS results.
-- Explain why particular resume changes would improve the candidate's fit.
-- For missing skills, suggest learning them rather than falsely adding them.
-- For keywords, recommend naturally incorporating them only when the candidate genuinely has relevant experience.
-- Avoid keyword stuffing.
 
-Analyze:
-
-- Overall match
-- Why the candidate matches the job
-- Why the candidate does not match
-- Missing skills
-- Missing keywords
-- Resume improvements
-- Project improvements
-- ATS improvements
-- A prioritized action plan
-
-Return only the requested JSON structure.
+Required JSON Structure:
+{{
+  "overallAssessment": "string",
+  "whyYouMatch": ["string"],
+  "whyYouDontMatch": ["string"],
+  "missingSkills": ["string"],
+  "missingKeywords": ["string"],
+  "resumeImprovements": ["string"],
+  "projectImprovements": ["string"],
+  "atsImprovements": ["string"],
+  "actionPlan": ["string"]
+}}
 
 CANDIDATE RESUME:
-
 {json.dumps(resume, indent=2)}
 
 JOB:
-
 {json.dumps(job, indent=2)}
 
 ATS ANALYSIS:
-
 {json.dumps(ats, indent=2)}
 """
+    result = _call_llm_json(prompt, system_message=system_msg)
+    return {
+        "overallAssessment": result.get("overallAssessment", ""),
+        "whyYouMatch": result.get("whyYouMatch", []),
+        "whyYouDontMatch": result.get("whyYouDontMatch", []),
+        "missingSkills": result.get("missingSkills", []),
+        "missingKeywords": result.get("missingKeywords", []),
+        "resumeImprovements": result.get("resumeImprovements", []),
+        "projectImprovements": result.get("projectImprovements", []),
+        "atsImprovements": result.get("atsImprovements", []),
+        "actionPlan": result.get("actionPlan", [])
+    }
 
-    response = requests.post(
-        "http://host.docker.internal:11434/api/generate",
-        json={
-            "model": "qwen2.5:3b",
-            "prompt": prompt,
-            "stream": False,
-            "format": schema
-        }
-    )
 
-    response.raise_for_status()
+def generate_interview_question(resume, job, previous_question=None, previous_answer=None):
+    system_msg = "You are conducting a realistic technical job interview."
 
-    result = response.json()["response"]
-
-    return json.loads(result)
-
-def generate_interview_question(
-    resume,
-    job,
-    previous_question=None,
-    previous_answer=None
-):
-
-    resume_data = (
-        resume.get("structuredResume", resume)
-        if isinstance(resume, dict)
-        else {}
-    )
+    resume_data = resume.get("structuredResume", resume) if isinstance(resume, dict) else {}
     if not isinstance(resume_data, dict):
         resume_data = resume if isinstance(resume, dict) else {}
 
@@ -533,16 +272,9 @@ def generate_interview_question(
         "description": job.get("description", "") if isinstance(job, dict) else ""
     }
 
-    # ---------------------------------------------------------
-    # First question
-    # ---------------------------------------------------------
-
     if not previous_question or not previous_answer:
-
         prompt = f"""
-You are conducting a realistic technical job interview.
-
-Generate ONE interview question for this candidate.
+Generate ONE initial interview question for this candidate.
 
 CANDIDATE:
 {json.dumps(resume_context, indent=2)}
@@ -551,48 +283,22 @@ JOB:
 {json.dumps(job_context, indent=2)}
 
 RULES:
+- Generate exactly ONE question. Max 25 words.
+- Focus on ONE specific concept. Candidate answers in 1-2 mins.
+- Do not ask for code or entire system design.
+- Prefer a topic appearing in both resume and job.
 
-- Generate exactly ONE question.
-- Focus on ONE specific concept.
-- Maximum 25 words.
-- The candidate should answer in 1-2 minutes.
-- Ask exactly ONE thing.
-- Do not ask for code.
-- Do not ask for an entire system design.
-- Do not combine multiple technologies.
-- Do not combine unrelated topics.
-- Do not invent candidate experience.
-- Prefer a topic appearing in both the resume and job.
-- Make the question sound natural in a real interview.
-
-GOOD:
-"How did you implement JWT authentication in your Node.js application?"
-
-"How did you use MongoDB in your project?"
-
-BAD:
-"Explain JWT, MongoDB, Redis, React, Docker, CI/CD and AWS."
-
-Return ONLY valid JSON matching this schema:
+Required JSON Structure:
 {{
-  "question": "string",
-  "questionType": "string",
-  "topic": "string",
-  "difficulty": "string"
+  "question": "How did you implement JWT authentication in your Node.js project?",
+  "questionType": "technical",
+  "topic": "Authentication",
+  "difficulty": "medium"
 }}
 """
-
-    # ---------------------------------------------------------
-    # Follow-up question
-    # ---------------------------------------------------------
-
     else:
-
         prompt = f"""
-You are conducting a realistic technical job interview.
-
-Generate ONE follow-up question based specifically on the
-candidate's previous answer.
+Generate ONE follow-up question based on the candidate's previous answer.
 
 CANDIDATE:
 {json.dumps(resume_context, indent=2)}
@@ -607,90 +313,31 @@ CANDIDATE'S ANSWER:
 {previous_answer}
 
 RULES:
+- Generate exactly ONE follow-up question directly related to the previous answer.
+- Focus on ONE specific concept. Max 25 words.
+- If answer was weak, probe missing understanding. If strong, increase difficulty slightly.
 
-- Generate exactly ONE follow-up question.
-- The question MUST directly relate to the candidate's previous answer.
-- Focus on ONE specific concept.
-- Maximum 25 words.
-- The candidate should answer in 1-2 minutes.
-- Ask exactly ONE thing.
-- Do not ask for code.
-- Do not repeat the previous question.
-- Do not suddenly switch to an unrelated topic.
-- Do not combine multiple technologies.
-- Do not invent experience.
-- If the answer is weak, ask a question that probes the missing understanding.
-- If the answer is strong, increase the difficulty slightly.
-- Make the question sound natural in a real interview.
-
-GOOD:
-Previous question:
-"How did you implement JWT authentication?"
-
-Answer:
-"I created middleware that verifies the JWT before allowing
-access to protected routes."
-
-Follow-up:
-"How would you handle an expired JWT in your authentication middleware?"
-
-BAD:
-"Now explain Redis, MongoDB, Docker, AWS and CI/CD."
-
-Return ONLY valid JSON matching this schema:
+Required JSON Structure:
 {{
-  "question": "string",
-  "questionType": "string",
-  "topic": "string",
-  "difficulty": "string"
+  "question": "Follow-up question string",
+  "questionType": "technical",
+  "topic": "Topic Name",
+  "difficulty": "medium"
 }}
 """
+    result = _call_llm_json(prompt, system_message=system_msg)
+    return {
+        "question": result.get("question", "Tell me about your technical experience relevant to this role."),
+        "questionType": result.get("questionType", "technical"),
+        "topic": result.get("topic", "General"),
+        "difficulty": result.get("difficulty", "medium")
+    }
 
-    try:
-        response = requests.post(
-            "http://host.docker.internal:11434/api/generate",
-            json={
-                "model": "qwen2.5:3b",
-                "prompt": prompt,
-                "stream": False,
-                "format": "json",
-                "options": {
-                    "temperature": 0.3
-                }
-            },
-            timeout=120
-        )
 
-        response.raise_for_status()
+def evaluate_interview_answer(question, answer, resume, job):
+    system_msg = "You are an expert technical interviewer evaluating a candidate's answer."
 
-        result_text = response.json().get("response", "").strip()
-
-        try:
-            return json.loads(result_text)
-        except json.JSONDecodeError:
-            import re
-            match = re.search(r'\{.*\}', result_text, re.DOTALL)
-            if match:
-                return json.loads(match.group(0))
-            raise
-
-    except Exception as e:
-        print("Error during generate_interview_question Ollama request:", e)
-        raise RuntimeError(f"Ollama interview question generation failed: {e}")
-
-def evaluate_interview_answer(
-    question,
-    answer,
-    resume,
-    job
-):
-
-    resume_data = (
-        resume.get("structuredResume", resume)
-        if isinstance(resume, dict)
-        else {}
-    )
-
+    resume_data = resume.get("structuredResume", resume) if isinstance(resume, dict) else {}
     if not isinstance(resume_data, dict):
         resume_data = resume if isinstance(resume, dict) else {}
 
@@ -707,12 +354,7 @@ def evaluate_interview_answer(
     }
 
     prompt = f"""
-You are an expert technical interviewer evaluating a candidate's
-answer to an interview question.
-
-You MUST evaluate the candidate's actual answer.
-
-Do NOT generate placeholder text.
+Evaluate the candidate's actual answer to the question.
 
 QUESTION:
 {question}
@@ -726,222 +368,94 @@ CANDIDATE RESUME:
 JOB:
 {json.dumps(job_context, indent=2)}
 
+PART 1: CONTENT EVALUATION (0 to 10)
+- Technical correctness, relevance, depth, practical understanding.
 
-========================
-PART 1: CONTENT EVALUATION
-========================
+PART 2: COMMUNICATION EVALUATION (0 to 10 for each)
+- clarity: Is explanation clear?
+- confidence: Score perceived language confidence (look for uncertainty markers like 'I think', 'maybe'). Do NOT diagnose psychology.
+- fluency: Smooth natural flow.
+- fillerWordScore: Filler word control score.
+- fillerWords: Array of objects with word and count.
+- confidenceSignals: Array of observed positive language signals.
+- communicationStrengths: Array of observed communication strengths.
+- communicationImprovements: Array of actionable language improvements.
 
-Evaluate the candidate's answer based on:
+Next Question: ONE realistic adaptive follow-up question.
 
-1. Technical correctness
-2. Relevance to the question
-3. Depth of understanding
-4. Practical understanding
-5. Alignment with the candidate's resume and the job
-
-Give a CONTENT SCORE from 0 to 10.
-
-Scoring:
-
-0-2 = Very poor
-3-4 = Poor
-5-6 = Average
-7-8 = Good
-9 = Very good
-10 = Excellent
-
-
-========================
-PART 2: COMMUNICATION EVALUATION
-========================
-
-Evaluate the candidate's communication based ONLY on the provided answer.
-
-Analyze:
-
-1. Clarity
-   - Is the explanation easy to understand?
-   - Are ideas expressed clearly?
-
-2. Confidence
-   - Does the candidate communicate ideas directly?
-   - Does the answer contain excessive uncertainty or hesitation?
-   - Look for phrases such as:
-     "I think"
-     "maybe"
-     "probably"
-     "I'm not sure"
-     "I guess"
-   - Do NOT claim to know the candidate's actual psychological confidence.
-   - Score perceived confidence based only on the language used.
-
-3. Fluency
-   - Does the answer flow naturally?
-   - Are there excessive repetitions or broken thoughts?
-
-4. Filler words
-   - Identify filler words actually present in the answer.
-   - Examples include:
-     "um", "uh", "like", "you know", "actually", "basically",
-     "so", "okay"
-   - Do NOT count normal meaningful usage as a filler word.
-   - Do NOT invent filler words that are not present.
-
-Give each communication category a score from 0 to 10.
-
-
-COMMUNICATION SCORE:
-
-Calculate:
-
-clarity * 0.30
-+
-confidence * 0.30
-+
-fluency * 0.20
-+
-fillerWordScore * 0.20
-
-Then convert the result to a score out of 10.
-
-
-========================
-FINAL SCORE
-========================
-
-Calculate:
-
-contentScore * 0.70
-+
-communicationScore * 0.30
-
-The final score must be out of 10.
-
-Do NOT simply average the two scores.
-
-
-========================
-FEEDBACK RULES
-========================
-
-IMPORTANT:
-
-- Evaluate ONLY the answer provided.
-- Do not invent things the candidate said.
-- Do not assume knowledge that was not demonstrated.
-- Strengths must describe things the candidate actually did well.
-- Improvements must describe specific weaknesses in the candidate's answer.
-- Communication improvements must be based on observable language patterns.
-- Filler words must actually appear in the candidate's answer.
-- Do not claim that the candidate is psychologically confident or insecure.
-- Keep feedback specific to the question.
-- Do not use placeholder words such as:
-  "strength1", "strength2",
-  "improvement1", "improvement2".
-- Each strength and improvement must be a complete meaningful sentence.
-- idealAnswerPoints must contain important points that would make the answer stronger.
-- Generate ONE realistic adaptive follow-up question.
-
-
-Return ONLY valid JSON matching this schema:
-
+Required JSON Structure:
 {{
     "contentScore": 8,
-
-    "strengths": [
-        "Complete meaningful sentence."
-    ],
-
-    "improvements": [
-        "Complete meaningful sentence."
-    ],
-
-    "idealAnswerPoints": [
-        "Complete meaningful sentence."
-    ],
-
+    "strengths": ["Meaningful sentence about technical strength."],
+    "improvements": ["Meaningful sentence about technical improvement."],
+    "idealAnswerPoints": ["Important point that strengthens answer."],
     "communication": {{
         "clarity": 8,
         "confidence": 7,
         "fluency": 8,
         "fillerWordScore": 9,
-
         "fillerWords": [
-            {{
-                "word": "um",
-                "count": 2
-            }}
+            {{"word": "um", "count": 1}}
         ],
-
-        "confidenceSignals": [
-            "The candidate uses direct statements when explaining the main concept."
-        ],
-
-        "communicationStrengths": [
-            "The explanation follows a logical sequence."
-        ],
-
-        "communicationImprovements": [
-            "Reduce hesitation phrases when explaining the concept."
-        ]
+        "confidenceSignals": ["Direct phrasing when stating key architectural choices."],
+        "communicationStrengths": ["Clear logical structure."],
+        "communicationImprovements": ["Reduce hesitation markers."]
     }},
-
-    "communicationScore": 8,
-
-    "finalScore": 8,
-
     "nextQuestion": "Concise adaptive follow-up question."
 }}
 """
+    result = _call_llm_json(prompt, system_message=system_msg)
 
-    try:
+    # Deterministic Score Weightings (Content = 70%, Communication = 30%)
+    content_score = float(result.get("contentScore", 7))
 
-        response = requests.post(
-            "http://host.docker.internal:11434/api/generate",
-            json={
-                "model": "qwen2.5-coder:7b",
-                "prompt": prompt,
-                "stream": False,
-                "format": "json",
-                "options": {
-                    "temperature": 0.3
-                }
-            },
-            timeout=120
-        )
+    comm = result.get("communication", {})
+    if not isinstance(comm, dict):
+        comm = {}
 
-        response.raise_for_status()
+    clarity = float(comm.get("clarity", 7))
+    confidence = float(comm.get("confidence", 7))
+    fluency = float(comm.get("fluency", 7))
+    filler_score = float(comm.get("fillerWordScore", 8))
 
-        result_text = response.json().get("response", "").strip()
+    # Communication score: Clarity 30%, Confidence 30%, Fluency 20%, Filler control 20%
+    comm_score = round(
+        clarity * 0.30 +
+        confidence * 0.30 +
+        fluency * 0.20 +
+        filler_score * 0.20,
+        1
+    )
 
-        try:
-            print("\n========== QWEN EVALUATION ==========")
-            print(result_text)
-            print("=====================================\n")
-            return json.loads(result_text)
+    # Final score: Content 70%, Communication 30%
+    final_score = round(content_score * 0.70 + comm_score * 0.30, 1)
 
-        except json.JSONDecodeError:
+    return {
+        "contentScore": content_score,
+        "strengths": result.get("strengths", []),
+        "improvements": result.get("improvements", []),
+        "idealAnswerPoints": result.get("idealAnswerPoints", []),
+        "communication": {
+            "clarity": clarity,
+            "confidence": confidence,
+            "fluency": fluency,
+            "fillerWordScore": filler_score,
+            "fillerWords": comm.get("fillerWords", []),
+            "confidenceSignals": comm.get("confidenceSignals", []),
+            "communicationStrengths": comm.get("communicationStrengths", []),
+            "communicationImprovements": comm.get("communicationImprovements", [])
+        },
+        "communicationScore": comm_score,
+        "finalScore": final_score,
+        "nextQuestion": result.get("nextQuestion", "Can you elaborate on how you handled edge cases?")
+    }
 
-            import re
 
-            match = re.search(
-                r'\{.*\}',
-                result_text,
-                re.DOTALL
-            )
-
-            if match:
-                return json.loads(match.group(0))
-
-            raise
-
-    except Exception as e:
-
-        print(
-            "Error during evaluate_interview_answer Ollama request:",
-            e
-        )
-
-        raise RuntimeError(
-            f"Ollama interview answer evaluation failed: {e}"
-        )
+if __name__ == "__main__":
+    test_resume = {
+        "skills": ["Python", "Node.js", "MongoDB"],
+        "experience": [{"company": "Tech Corp", "role": "Developer", "startDate": "2023", "endDate": "2024", "description": "Built APIs"}]
+    }
+    test_job = {"title": "Full Stack Engineer", "requiredSkills": ["Node.js", "MongoDB"]}
+    print("Testing generate_interview_question...")
+    print(generate_interview_question(test_resume, test_job))

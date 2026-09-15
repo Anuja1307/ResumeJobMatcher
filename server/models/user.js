@@ -155,16 +155,6 @@ const userSchema = new mongoose.Schema(
     }
 
 );
-console.log(
-    "PERSONS PATH:",
-    userSchema.path("resume.structuredResume.nerEntities.persons")
-);
-
-console.log(
-    "ORGANIZATIONS PATH:",
-    userSchema.path("resume.structuredResume.nerEntities.organizations")
-);
-
 
 module.exports =
     mongoose.models.User ||

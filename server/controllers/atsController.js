@@ -91,6 +91,13 @@ exports.getATSScore = async (req, res) => {
         }
 
 
+        if (resumeEmbedding.length !== job.embedding.length) {
+            return res.status(400).json({
+                success: false,
+                message: `Dimension mismatch between resume vector (${resumeEmbedding.length}) and job vector (${job.embedding.length}). Please regenerate embeddings.`
+            });
+        }
+
         // Calculate semantic similarity
         const similarity =
             cosineSimilarity(

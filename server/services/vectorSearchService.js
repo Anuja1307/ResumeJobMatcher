@@ -13,6 +13,12 @@ async function retrieveRelevantChunks({
     const queryEmbedding =
         await generateEmbedding(query);
 
+    // Dimension check for Atlas Vector Search index (expects 1536 dimensions)
+    if (!Array.isArray(queryEmbedding) || queryEmbedding.length !== 1536) {
+        console.warn(`[VectorSearch Warning] Query embedding dimension (${queryEmbedding?.length}) does not match Atlas vector_index (1536). Skipping vector search.`);
+        return [];
+    }
+
     const objectUserId =
     new mongoose.Types.ObjectId(userId);
 
