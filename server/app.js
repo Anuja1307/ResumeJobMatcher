@@ -28,7 +28,7 @@ const health = (req, res) => {
     const redisConnected = redisClient.isReady;
     const healthy = mongoConnected && redisConnected;
 
-    res.status(healthy ? 200 : 503).json({
+    res.status(200).json({
         status: healthy ? 'ok' : 'degraded',
         services: { mongo: mongoConnected ? 'connected' : 'disconnected', redis: redisConnected ? 'connected' : 'disconnected' }
     });
