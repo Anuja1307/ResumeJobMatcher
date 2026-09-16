@@ -16,7 +16,8 @@ from llm_extractor import (
     extract_resume_analysis,
     analyze_resume_for_job,
     generate_interview_question,
-    evaluate_interview_answer
+    evaluate_interview_answer,
+    generate_rag_answer
 )
 
 
@@ -65,6 +66,10 @@ class InterviewAnswerRequest(BaseModel):
     answer: str
     resume: dict
     job: dict
+
+
+class RAGRequest(BaseModel):
+    prompt: str
 
 
 # ============================================================
@@ -380,3 +385,18 @@ async def transcribe_audio(file: UploadFile = File(...)):
             "success": False,
             "message": f"Audio transcription failed: {str(error)}"
         }
+
+
+@app.post("/rag-answer")
+def rag_answer_endpoint(request: RAGRequest):
+    try:
+        answer = generate_rag_answer(request.prompt)
+        return {
+            "answer": answer
+        }
+    except Exception as e:
+        print("RAG answer generation error:", e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"RAG answer generation failed: {str(e)}"
+        )

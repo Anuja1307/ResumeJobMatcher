@@ -33,6 +33,51 @@ def _parse_json(text):
         raise ValueError(f"Could not parse valid JSON from LLM response: {text[:200]}")
 
 
+def _call_llm_text(prompt, system_message="You are an expert AI assistant."):
+    provider = os.getenv("AI_PROVIDER", "openai").lower()
+
+    if provider == "openai":
+        try:
+            client = get_openai_client()
+            model = os.getenv("OPENAI_LLM_MODEL", "gpt-4o-mini")
+
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3
+            )
+            content = response.choices[0].message.content
+            return content.strip() if content else ""
+        except Exception as e:
+            print(f"OpenAI LLM text error: {e}")
+            raise RuntimeError(f"LLM text generation failed via OpenAI: {e}")
+    else:
+        # Local Ollama fallback
+        ollama_url = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434").rstrip("/") + "/api/generate"
+        ollama_model = os.getenv("OLLAMA_LLM_MODEL", "qwen2.5:3b")
+
+        payload = {
+            "model": ollama_model,
+            "prompt": f"{system_message}\n\n{prompt}",
+            "stream": False,
+            "options": {
+                "temperature": 0.3
+            }
+        }
+
+        res = requests.post(ollama_url, json=payload, timeout=120)
+        res.raise_for_status()
+        content = res.json().get("response", "").strip()
+        return content
+
+
+def generate_rag_answer(prompt):
+    return _call_llm_text(prompt, system_message="You are an AI Career Copilot.")
+
+
 def _call_llm_json(prompt, system_message="You are an expert AI assistant. You MUST respond with valid JSON.", schema=None):
     provider = os.getenv("AI_PROVIDER", "openai").lower()
 

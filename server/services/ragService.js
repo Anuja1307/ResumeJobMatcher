@@ -169,15 +169,15 @@ Answer:
 
 
     // --------------------------------------------------
-    // 5. Generate answer using Qwen
+    // 5. Generate answer using AI Service
     // --------------------------------------------------
 
+    const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
+
     const response = await axios.post(
-        "http://localhost:11434/api/generate",
+        `${AI_SERVICE_URL}/rag-answer`,
         {
-            model: "qwen2.5:3b",
-            prompt,
-            stream: false
+            prompt
         }
     );
 
@@ -189,7 +189,7 @@ Answer:
     return {
 
         answer:
-            response.data.response.trim(),
+            (response.data.answer || "").trim(),
 
         sources:
             chunks.map(chunk => ({
