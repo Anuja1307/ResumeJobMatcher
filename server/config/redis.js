@@ -18,7 +18,11 @@ redisClient.on("ready", () => {
 
 async function connectRedis() {
     if (!redisClient.isOpen) {
-        await redisClient.connect();
+        try {
+            await redisClient.connect();
+        } catch (err) {
+            console.error("Redis connection error:", err.message);
+        }
     }
 }
 

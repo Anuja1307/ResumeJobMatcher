@@ -14,12 +14,16 @@ const app = express();
 app.use(helmet());
 
 app.use(cors({
-    origin: process.env.CLIENT_URL,
+    origin: process.env.CLIENT_URL ? [process.env.CLIENT_URL, "http://localhost:5173", "http://localhost:3000"] : true,
     credentials: true
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'ok', message: 'ResumeJobMatcher backend is healthy' });
+});
 
 app.use('/api/auth', authRouter);
 app.use('/api/resume', resumeRouter);
