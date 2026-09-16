@@ -84,6 +84,15 @@ def home():
     }
 
 
+@app.get("/health")
+def health():
+    """Lightweight readiness endpoint that does not invoke an AI provider."""
+    return {
+        "status": "ok",
+        "provider": os.getenv("AI_PROVIDER", "openai").lower()
+    }
+
+
 # ============================================================
 # Resume Extraction Endpoint
 # ============================================================

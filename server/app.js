@@ -8,6 +8,8 @@ const jobRouter = require('./routes/jobRouter');
 const interviewRoutes = require('./routes/interviewRouter');
 const ragRoutes = require('./routes/ragRoutes');
 const careerChatRoutes = require('./routes/careerChatRoutes');
+const mongoose = require('mongoose');
+const { redisClient } = require('./config/redis');
 
 const app = express();
 
@@ -21,13 +23,19 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', message: 'ResumeJobMatcher backend is healthy' });
-});
+const health = (req, res) => {
+    const mongoConnected = mongoose.connection.readyState === 1;
+    const redisConnected = redisClient.isReady;
+    const healthy = mongoConnected && redisConnected;
 
-app.get('/api/health', (req, res) => {
-    res.status(200).json({ status: 'ok', message: 'ResumeJobMatcher backend is healthy' });
-});
+    res.status(healthy ? 200 : 503).json({
+        status: healthy ? 'ok' : 'degraded',
+        services: { mongo: mongoConnected ? 'connected' : 'disconnected', redis: redisConnected ? 'connected' : 'disconnected' }
+    });
+};
+
+app.get('/health', health);
+app.get('/api/health', health);
 
 app.use('/api/auth', authRouter);
 app.use('/api/resume', resumeRouter);

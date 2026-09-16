@@ -1,11 +1,11 @@
-FROM python:3.14-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir \
-    torch==2.13.0 \
+    torch==2.2.2 \
     --index-url https://download.pytorch.org/whl/cpu
 
 RUN pip install --no-cache-dir -r requirements.txt
