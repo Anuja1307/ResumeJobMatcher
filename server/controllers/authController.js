@@ -40,8 +40,8 @@ await sendOTPEmail(user.email, otp);
         return res.status(201).json({success:true,message:"User registered successfully"});
     }
     catch(err){
-        console.log(err);
-        return res.status(500).json({success:false,message:"Server error"});
+        console.error("postRegister error:", err);
+        return res.status(500).json({success:false,message: err.message || "Server error"});
     }
 }
 
@@ -72,7 +72,7 @@ exports.postLogin=async (req,res)=>{
             return res.status(400).json({success:false,message:"Invalid credentials"});
         }
 
-        const token=jwt.sign({userId:userExists._id,name:userExists.name,userEmail:userExists.email},process.env.JWT_SECRET,{expiresIn:process.env.JWT_EXPIRE});
+        const token=jwt.sign({userId:userExists._id,name:userExists.name,userEmail:userExists.email},process.env.JWT_SECRET || "default_jwt_secret_fallback",{expiresIn:process.env.JWT_EXPIRE || "7d"});
         
         return res.status(200).json({
             success:true,
@@ -86,8 +86,8 @@ exports.postLogin=async (req,res)=>{
             }
         });
     } catch (err) {
-        console.log(err);
-        return res.status(500).json({success:false,message:"Server error"});
+        console.error("postLogin error:", err);
+        return res.status(500).json({success:false,message: err.message || "Server error"});
     }
 }
 
