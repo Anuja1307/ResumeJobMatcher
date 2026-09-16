@@ -1,6 +1,7 @@
 from llm_extractor import extract_resume_information
 
-text = """
+if __name__ == "__main__":
+    text = """
 Anuja Sharma
 
 Experience
@@ -11,7 +12,5 @@ June 2025 - August 2025
 
 Developed REST APIs using Node.js and Express.js.
 """
-
-result = extract_resume_information(text)
-
-print(result)
+    result = extract_resume_information(text)
+    print(result)
