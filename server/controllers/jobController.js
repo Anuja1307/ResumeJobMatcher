@@ -2,11 +2,6 @@ const Job= require('../models/jobs');
 const { generateEmbedding,extractJobSkills,extractJobKeywords } = require("../services/aiService");
 const User = require("../models/user");
 const { matchResumeToJobs } = require("../services/jobMatcher");
-const resumeSkills =
-    User.resume?.structuredResume?.skills || [];
-
-const resumeExperience =
-    User.resume?.structuredResume?.experience || [];
 const {
     createJobChunks
 } = require("../services/chunkingService");
@@ -368,8 +363,9 @@ exports.getJobMatches = async (req, res) => {
             });
         }
 
-        const resumeEmbedding =user.resume?.embedding;
-        const resumeSkills =user.resume?.structuredResume?.skills || [];
+        const resumeEmbedding = user.resume?.embedding;
+        const resumeSkills = user.resume?.structuredResume?.skills || [];
+        const resumeExperience = user.resume?.structuredResume?.experience || [];
 
         if (
             !resumeEmbedding ||
@@ -381,12 +377,12 @@ exports.getJobMatches = async (req, res) => {
             });
         }
 
-       const matches = await matchResumeToJobs(
-        userId,
-        resumeEmbedding,
-        resumeSkills,
-        resumeExperience
-    );
+        const matches = await matchResumeToJobs(
+            userId,
+            resumeEmbedding,
+            resumeSkills,
+            resumeExperience
+        );
 
       const results = matches.map(match => ({
     job: match.job,

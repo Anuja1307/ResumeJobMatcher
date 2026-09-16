@@ -22,9 +22,12 @@ async function storeChunks({
     const documents = [];
 
     for (const chunk of chunks) {
-
-        const embedding =
-            await generateEmbedding(chunk.text);
+        let embedding = [];
+        try {
+            embedding = await generateEmbedding(chunk.text);
+        } catch (embedErr) {
+            console.warn("Chunk embedding failed:", embedErr.message);
+        }
 
         documents.push({
             userId,

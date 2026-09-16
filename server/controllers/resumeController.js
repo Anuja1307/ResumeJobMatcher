@@ -178,85 +178,75 @@ exports.uploadResume = async (req, res) => {
             "===== CALLING AI SERVICE ====="
         );
 
+        let bertData = {};
+        let llmData = {};
 
-        const aiResult =
-            await extractWithAI(parsedResume);
-
-
-        const bertData =
-            aiResult.bert || {};
-
-
-        const llmData =
-            aiResult.llm || {};
-
-
-        console.log(
-            "===== BERT DATA ====="
-        );
-
-        console.log(
-            JSON.stringify(
-                bertData,
-                null,
-                2
-            )
-        );
-
-
-        console.log(
-            "===== LLM DATA ====="
-        );
-
-        console.log(
-            JSON.stringify(
-                llmData,
-                null,
-                2
-            )
-        );
-
+        try {
+            const aiResult = await extractWithAI(parsedResume);
+            bertData = aiResult.bert || {};
+            llmData = aiResult.llm || {};
+        } catch (aiErr) {
+            console.warn(
+                "AI extraction unavailable, proceeding with rule-based extraction:",
+                aiErr.message
+            );
+        }
 
         // ======================================================
         // 7. MERGE RULE + BERT + LLM
         // ======================================================
 
-    const mergedResume = mergeResumeData(
-    ruleData,
-    bertData,
-    llmData,
-    parsedResume
-);
+        const mergedResume = mergeResumeData(
+            ruleData,
+            bertData,
+            llmData,
+            parsedResume
+        );
 
-   const structuredResume = normalizeResume(mergedResume);
+        const structuredResume = normalizeResume(mergedResume);
 
-// Existing whole-resume embedding
-const resumeEmbeddingText =
-    buildResumeEmbeddingText(structuredResume);
+        // Whole-resume embedding
+        const resumeEmbeddingText =
+            buildResumeEmbeddingText(structuredResume);
 
-const resumeEmbedding =
-    await generateEmbedding(resumeEmbeddingText);
+        let resumeEmbedding = [];
 
+        try {
+            resumeEmbedding =
+                await generateEmbedding(resumeEmbeddingText);
+        } catch (embedErr) {
+            console.warn(
+                "Embedding generation unavailable:",
+                embedErr.message
+            );
+        }
 
-// ======================================================
-// RAG CHUNKING + EMBEDDINGS
-// ======================================================
+        // ======================================================
+        // RAG CHUNKING + EMBEDDINGS
+        // ======================================================
 
-const resumeChunks =
-    createResumeChunks(structuredResume);
+        try {
+            const resumeChunks =
+                createResumeChunks(structuredResume);
 
-console.log(
-    `===== CREATED ${resumeChunks.length} RESUME CHUNKS =====`
-);
+            console.log(
+                `===== CREATED ${resumeChunks.length} RESUME CHUNKS =====`
+            );
 
-await replaceResumeChunks({
-    userId,
-    chunks: resumeChunks
-});
+            await replaceResumeChunks({
+                userId,
+                chunks: resumeChunks
+            });
 
-console.log(
-    "===== RESUME RAG INDEXING COMPLETE ====="
-);
+            console.log(
+                "===== RESUME RAG INDEXING COMPLETE ====="
+            );
+        } catch (ragErr) {
+            console.warn(
+                "Resume RAG indexing skipped:",
+                ragErr.message
+            );
+        }
         console.log(
             "===== FINAL STRUCTURED RESUME ====="
         );
